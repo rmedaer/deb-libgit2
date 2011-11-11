@@ -1,0 +1,5 @@
+libgit2 (0.15.0-1) unstable; urgency=low
+
+  * Initial release (Closes: #nnnn)  <nnnn is the bug number of your ITP>
+
+ -- Russell Sim <russell.sim@gmail.com>  Wed, 09 Nov 2011 18:29:33 +1100
