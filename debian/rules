@@ -10,4 +10,8 @@
 #export DH_VERBOSE=1
 
 %:
-	dh $@ 
+	dh $@
+
+.PHONY: override_dh_strip
+override_dh_strip:
+        dh_strip --dbg-package=libgit2-dbg

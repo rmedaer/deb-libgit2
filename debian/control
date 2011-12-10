@@ -8,10 +8,26 @@ Homepage: http://libgit2.github.com/
 #Vcs-Git: git://git.debian.org/collab-maint/libgit2.git
 #Vcs-Browser: http://git.debian.org/?p=collab-maint/libgit2.git;a=summary
 
+
+Package: libgit2-dev
+Architecture: any
+Section: libdevel
+Depends: ${misc:Depends},
+
 Package: libgit2
+Section: libs
 Architecture: any
 Depends: ${shlibs:Depends}, ${misc:Depends}
 Description: libgit2 is a portable, pure C implementation of the Git
  distributed version control system core methods provided as a
  re-entrant linkable library with a solid API, allowing you to write
  native speed custom Git applications in any language with bindings.
+
+Package: libgit2-dbg
+Section: debug
+Priority: extra
+Architecture: any
+Depends: libgit2 (= ${binary:Version}),
+         ${misc:Depends}
+Description: libgit2 debugging symbols
+
