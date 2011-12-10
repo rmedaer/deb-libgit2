@@ -13,12 +13,14 @@ Package: libgit2-dev
 Architecture: any
 Section: libdevel
 Depends: ${misc:Depends},
+Description: headers for libgit2, an implemtation of the Git DVCS
 
 Package: libgit2
 Section: libs
 Architecture: any
 Depends: ${shlibs:Depends}, ${misc:Depends}
-Description: libgit2 is a portable, pure C implementation of the Git
+Description: libgit2 is an implemtation of the Git DVCS
+ libgit2 is a portable, pure C implementation of the Git
  distributed version control system core methods provided as a
  re-entrant linkable library with a solid API, allowing you to write
  native speed custom Git applications in any language with bindings.
