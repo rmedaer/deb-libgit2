@@ -2,7 +2,7 @@ Source: libgit2
 Section: unknown
 Priority: extra
 Maintainer: Russell Sim <russell.sim@gmail.com>
-Build-Depends: debhelper (>= 8.0.0), python-all (>= 2.4.0), cmake
+Build-Depends: debhelper (>= 8.0.0), python-all (>= 2.4.0), cmake, libz-dev
 Standards-Version: 3.9.2
 Homepage: http://libgit2.github.com/
 #Vcs-Git: git://git.debian.org/collab-maint/libgit2.git
@@ -13,23 +13,23 @@ Package: libgit2-dev
 Architecture: any
 Section: libdevel
 Depends: ${misc:Depends},
-Description: headers for libgit2, an implemtation of the Git DVCS
+Description: headers for libgit2, an implementation of the Git DVCS
 
-Package: libgit2
+Package: libgit2-0
 Section: libs
 Architecture: any
 Depends: ${shlibs:Depends}, ${misc:Depends}
-Description: libgit2 is an implemtation of the Git DVCS
+Description: libgit2 is an implementation of the Git DVCS
  libgit2 is a portable, pure C implementation of the Git
  distributed version control system core methods provided as a
- re-entrant linkable library with a solid API, allowing you to write
+ re-entrant link-able library with a solid API, allowing you to write
  native speed custom Git applications in any language with bindings.
 
 Package: libgit2-dbg
 Section: debug
 Priority: extra
 Architecture: any
-Depends: libgit2 (= ${binary:Version}),
+Depends: libgit2-0 (= ${binary:Version}),
          ${misc:Depends}
 Description: libgit2 debugging symbols
 
