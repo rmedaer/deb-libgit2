@@ -1,3 +1,9 @@
+libgit2 (0.16.0-1) unstable; urgency=low
+
+  * Updated version.
+
+ -- Russell Sim <russell.sim@gmail.com>  Tue, 06 Mar 2012 23:03:20 +1100
+
 libgit2 (0.15.0-1) unstable; urgency=low
 
   * Initial release (Closes: #614517)
