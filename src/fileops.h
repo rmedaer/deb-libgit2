@@ -9,7 +9,6 @@
 
 #include "common.h"
 #include "map.h"
-#include "dir.h"
 #include "posix.h"
 #include "path.h"
 
@@ -28,6 +27,7 @@ typedef struct { /* file io buffer */
 extern int git_futils_readbuffer(git_fbuffer *obj, const char *path);
 extern int git_futils_readbuffer_updated(git_fbuffer *obj, const char *path, time_t *mtime, int *updated);
 extern void git_futils_freebuffer(git_fbuffer *obj);
+extern void git_futils_fbuffer_rtrim(git_fbuffer *obj);
 
 /**
  * File utils
@@ -40,65 +40,50 @@ extern void git_futils_freebuffer(git_fbuffer *obj);
  */
 
 /**
- * Check if a file exists and can be accessed.
- */
-extern int git_futils_exists(const char *path);
-
-/**
  * Create and open a file, while also
  * creating all the folders in its path
  */
-extern int git_futils_creat_withpath(const char *path, int mode);
+extern int git_futils_creat_withpath(const char *path, const mode_t dirmode, const mode_t mode);
 
 /**
  * Create an open a process-locked file
  */
-extern int git_futils_creat_locked(const char *path, int mode);
+extern int git_futils_creat_locked(const char *path, const mode_t mode);
 
 /**
  * Create an open a process-locked file, while
  * also creating all the folders in its path
  */
-extern int git_futils_creat_locked_withpath(const char *path, int mode);
-
-/**
- * Check if the given path points to a directory
- */
-extern int git_futils_isdir(const char *path);
-
-/**
- * Check if the given path points to a regular file
- */
-extern int git_futils_isfile(const char *path);
+extern int git_futils_creat_locked_withpath(const char *path, const mode_t dirmode, const mode_t mode);
 
 /**
  * Create a path recursively
  */
-extern int git_futils_mkdir_r(const char *path, int mode);
+extern int git_futils_mkdir_r(const char *path, const char *base, const mode_t mode);
 
 /**
  * Create all the folders required to contain
  * the full path of a file
  */
-extern int git_futils_mkpath2file(const char *path);
+extern int git_futils_mkpath2file(const char *path, const mode_t mode);
 
+/**
+ * Remove path and any files and directories beneath it.
+ */
 extern int git_futils_rmdir_r(const char *path, int force);
 
 /**
- * Create and open a temporary file with a `_git2_` suffix
+ * Create and open a temporary file with a `_git2_` suffix.
+ * Writes the filename into path_out.
+ * @return On success, an open file descriptor, else an error code < 0.
  */
-extern int git_futils_mktmp(char *path_out, const char *filename);
-
-/**
- * Atomically rename a file on the filesystem
- */
-extern int git_futils_mv_atomic(const char *from, const char *to);
+extern int git_futils_mktmp(git_buf *path_out, const char *filename);
 
 /**
  * Move a file on the filesystem, create the
  * destination path if it doesn't exist
  */
-extern int git_futils_mv_withpath(const char *from, const char *to);
+extern int git_futils_mv_withpath(const char *from, const char *to, const mode_t dirmode);
 
 
 /**
@@ -134,23 +119,27 @@ extern int git_futils_mmap_ro(
 extern void git_futils_mmap_free(git_map *map);
 
 /**
- * Walk each directory entry, except '.' and '..', calling fn(state).
+ * Find a "global" file (i.e. one in a user's home directory).
  *
- * @param pathbuf buffer the function reads the initial directory
- * 		path from, and updates with each successive entry's name.
- * @param pathmax maximum allocation of pathbuf.
- * @param fn function to invoke with each entry. The first arg is
- *		the input state and the second arg is pathbuf. The function
- *		may modify the pathbuf, but only by appending new text.
- * @param state to pass to fn as the first arg.
+ * @param pathbuf buffer to write the full path into
+ * @param filename name of file to find in the home directory
+ * @return
+ * - GIT_SUCCESS if found;
+ * - GIT_ENOTFOUND if not found;
+ * - GIT_EOSERR on an unspecified OS related error.
  */
-extern int git_futils_direach(
-	char *pathbuf,
-	size_t pathmax,
-	int (*fn)(void *, char *),
-	void *state);
+extern int git_futils_find_global_file(git_buf *path, const char *filename);
 
-extern int git_futils_cmp_path(const char *name1, int len1, int isdir1,
-		const char *name2, int len2, int isdir2);
+/**
+ * Find a "system" file (i.e. one shared for all users of the system).
+ *
+ * @param pathbuf buffer to write the full path into
+ * @param filename name of file to find in the home directory
+ * @return
+ * - GIT_SUCCESS if found;
+ * - GIT_ENOTFOUND if not found;
+ * - GIT_EOSERR on an unspecified OS related error.
+ */
+extern int git_futils_find_system_file(git_buf *path, const char *filename);
 
 #endif /* INCLUDE_fileops_h__ */

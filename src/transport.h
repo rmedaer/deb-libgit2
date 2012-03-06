@@ -7,7 +7,6 @@
 #ifndef INCLUDE_transport_h__
 #define INCLUDE_transport_h__
 
-#include "git2/transport.h"
 #include "git2/net.h"
 #include "vector.h"
 
@@ -61,19 +60,11 @@ struct git_transport {
 	/**
 	 * Give a list of references, useful for ls-remote
 	 */
-	int (*ls)(struct git_transport *transport, git_headarray *headarray);
+	int (*ls)(struct git_transport *transport, git_headlist_cb list_cb, void *opaque);
 	/**
 	 * Push the changes over
 	 */
 	int (*push)(struct git_transport *transport);
-	/**
-	 * Send the list of 'want' refs
-	 */
-	int (*send_wants)(struct git_transport *transport, git_headarray *list);
-	/**
-	 * Send the list of 'have' refs
-	 */
-	int (*send_have)(struct git_transport *transport, git_oid *oid);
 	/**
 	 * Send a 'done' message
 	 */
@@ -82,7 +73,7 @@ struct git_transport {
 	 * Negotiate the minimal amount of objects that need to be
 	 * retrieved
 	 */
-	int (*negotiate_fetch)(struct git_transport *transport, git_repository *repo, git_headarray *list);
+	int (*negotiate_fetch)(struct git_transport *transport, git_repository *repo, const git_vector *wants);
 	/**
 	 * Send a flush
 	 */
@@ -105,9 +96,15 @@ struct git_transport {
 	void (*free)(struct git_transport *transport);
 };
 
+
+int git_transport_new(struct git_transport **transport, const char *url);
 int git_transport_local(struct git_transport **transport);
 int git_transport_git(struct git_transport **transport);
 int git_transport_http(struct git_transport **transport);
 int git_transport_dummy(struct git_transport **transport);
+int git_transport_valid_url(const char *url);
+
+typedef struct git_transport git_transport;
+typedef int (*git_transport_cb)(git_transport **transport);
 
 #endif

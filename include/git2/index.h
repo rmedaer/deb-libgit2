@@ -169,6 +169,10 @@ GIT_EXTERN(void) git_index_uniq(git_index *index);
  *
  * This method will fail in bare index instances.
  *
+ * This forces the file to be added to the index, not looking
+ * at gitignore rules.  Those rules can be evaluated through
+ * the git_status APIs (in status.h) before calling this.
+ *
  * @param index an existing index object
  * @param path filename to add
  * @param stage stage for the entry
@@ -300,6 +304,17 @@ GIT_EXTERN(const git_index_entry_unmerged *) git_index_get_unmerged_byindex(git_
  * @returns the stage number
  */
 GIT_EXTERN(int) git_index_entry_stage(const git_index_entry *entry);
+
+/**
+ * Read a tree into the index file
+ *
+ * The current index contents will be replaced by the specified tree.
+ *
+ * @param index an existing index object
+ * @param tree tree to read
+ * @return GIT_SUCCESS or an error code
+ */
+GIT_EXTERN(int) git_index_read_tree(git_index *index, git_tree *tree);
 
 /** @} */
 GIT_END_DECL

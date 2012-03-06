@@ -5,11 +5,13 @@
  * a Linking Exception. For full terms see the included COPYING file.
  */
 
-#include "mwindow.h"
+#include "common.h"
 #include "odb.h"
 #include "pack.h"
 #include "delta-apply.h"
 #include "sha1_lookup.h"
+#include "mwindow.h"
+#include "fileops.h"
 
 #include "git2/oid.h"
 #include "git2/zlib.h"
@@ -155,13 +157,6 @@ static int pack_index_check(const char *path, struct git_pack_file *p)
 			git_futils_mmap_free(&p->index_map);
 			return git__throw(GIT_EOBJCORRUPTED, "Failed to check index. Wrong index size");
 		}
-
-		/* Make sure that off_t is big enough to access the whole pack...
-		 * Is this an issue in libgit2? It shouldn't. */
-		if (idx_size != min_size && (sizeof(off_t) <= 4)) {
-			git_futils_mmap_free(&p->index_map);
-			return git__throw(GIT_EOSERR, "Failed to check index. off_t not big enough to access the whole pack");
-		}
 	}
 
 	p->index_version = version;
@@ -181,7 +176,7 @@ static int pack_index_open(struct git_pack_file *p)
 	strcpy(idx_name + strlen(idx_name) - strlen(".pack"), ".idx");
 
 	error = pack_index_check(idx_name, p);
-	free(idx_name);
+	git__free(idx_name);
 
 	return error == GIT_SUCCESS ? GIT_SUCCESS : git__rethrow(error, "Failed to open index");
 }
@@ -297,7 +292,7 @@ static int packfile_unpack_delta(
 
 	error = packfile_unpack_compressed(&delta, p, w_curs, curpos, delta_size, delta_type);
 	if (error < GIT_SUCCESS) {
-		free(base.data);
+		git__free(base.data);
 		return git__rethrow(error, "Corrupted delta");
 	}
 
@@ -306,8 +301,8 @@ static int packfile_unpack_delta(
 			base.data, base.len,
 			delta.data, delta.len);
 
-	free(base.data);
-	free(delta.data);
+	git__free(base.data);
+	git__free(delta.data);
 
 	/* TODO: we might want to cache this shit. eventually */
 	//add_delta_base_cache(p, base_offset, base, base_size, *type);
@@ -390,7 +385,7 @@ int packfile_unpack_compressed(
 
 	st = inflateInit(&stream);
 	if (st != Z_OK) {
-		free(buffer);
+		git__free(buffer);
 		return git__throw(GIT_EZLIB, "Error in zlib");
 	}
 
@@ -408,7 +403,7 @@ int packfile_unpack_compressed(
 	inflateEnd(&stream);
 
 	if ((st != Z_STREAM_END) || stream.total_out != size) {
-		free(buffer);
+		git__free(buffer);
 		return git__throw(GIT_EZLIB, "Error in zlib");
 	}
 
@@ -504,8 +499,8 @@ void packfile_free(struct git_pack_file *p)
 
 	pack_index_free(p);
 
-	free(p->bad_object_sha1);
-	free(p);
+	git__free(p->bad_object_sha1);
+	git__free(p);
 }
 
 static int packfile_open(struct git_pack_file *p)
@@ -598,26 +593,26 @@ int git_packfile_check(struct git_pack_file **pack_out, const char *path)
 	 */
 	path_len -= strlen(".idx");
 	if (path_len < 1) {
-		free(p);
+		git__free(p);
 		return git__throw(GIT_ENOTFOUND, "Failed to check packfile. Wrong path name");
 	}
 
 	memcpy(p->pack_name, path, path_len);
 
 	strcpy(p->pack_name + path_len, ".keep");
-	if (git_futils_exists(p->pack_name) == GIT_SUCCESS)
+	if (git_path_exists(p->pack_name) == GIT_SUCCESS)
 		p->pack_keep = 1;
 
 	strcpy(p->pack_name + path_len, ".pack");
 	if (p_stat(p->pack_name, &st) < GIT_SUCCESS || !S_ISREG(st.st_mode)) {
-		free(p);
+		git__free(p);
 		return git__throw(GIT_ENOTFOUND, "Failed to check packfile. File not found");
 	}
 
 	/* ok, it looks sane as far as we can check without
 	 * actually mapping the pack file.
 	 */
-	p->mwf.size = (off_t)st.st_size;
+	p->mwf.size = st.st_size;
 	p->pack_local = 1;
 	p->mtime = (git_time_t)st.st_mtime;
 
@@ -722,7 +717,7 @@ static int pack_entry_find_offset(
 		}
 	}
 
-	if (found && pos + 1 < (int)p->num_objects) {
+	if (found && len != GIT_OID_HEXSZ && pos + 1 < (int)p->num_objects) {
 		/* Check for ambiguousity */
 		const unsigned char *next = current + stride;
 

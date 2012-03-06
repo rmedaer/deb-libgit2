@@ -14,12 +14,12 @@
 struct git_remote {
 	char *name;
 	char *url;
-	git_headarray refs;
+	git_vector refs;
 	struct git_refspec fetch;
 	struct git_refspec push;
 	git_transport *transport;
 	git_repository *repo;
-	int need_pack:1;
+	unsigned int need_pack:1;
 };
 
 #endif

@@ -162,7 +162,7 @@ BEGIN_TEST(parse1, "parse the signature line in a commit")
 	must_be_true(strcmp(_email, person.email) == 0);\
 	must_be_true(_time == person.when.time);\
 	must_be_true(_offset == person.when.offset);\
-	free(person.name); free(person.email);\
+	git__free(person.name); git__free(person.email);\
 }
 
 #define TEST_SIGNATURE_FAIL(_string, _header) { \
@@ -170,7 +170,7 @@ BEGIN_TEST(parse1, "parse the signature line in a commit")
 	size_t len = strlen(_string);\
 	git_signature person = {NULL, NULL, {0, 0}}; \
 	must_fail(git_signature__parse(&person, &ptr, ptr + len, _header, '\n'));\
-	free(person.name); free(person.email);\
+	git__free(person.name); git__free(person.email);\
 }
 
 	TEST_SIGNATURE_PASS(
@@ -412,6 +412,14 @@ BEGIN_TEST(parse1, "parse the signature line in a commit")
 		1234567890,
 		0);
 
+	TEST_SIGNATURE_PASS(
+		"author A U Thor> <author@example.com> and others 1234567890\n",
+		"author ",
+		"A U Thor>",
+		"author@example.com",
+		1234567890,
+		0);
+
 	TEST_SIGNATURE_FAIL(
 		"committer Vicent Marti tanoku@gmail.com> 123456 -0100 \n",
 		"committer ");
@@ -560,6 +568,7 @@ static const char *commit_ids[] = {
 	"c47800c7266a2be04c571c04d5a6614691ea99bd", /* 3 */
 	"8496071c1b46c854b31185ea97743be6a8774479", /* 4 */
 	"5b5b025afb0b4c913b4c338a42934a3863bf3644", /* 5 */
+	"a65fedf39aefe402d3bb6e24df4d4f5fe4547750", /* 6 */
 };
 
 BEGIN_TEST(details0, "query the details on a parsed commit")
@@ -594,23 +603,24 @@ BEGIN_TEST(details0, "query the details on a parsed commit")
 		must_be_true(strcmp(author->email, "schacon@gmail.com") == 0);
 		must_be_true(strcmp(committer->name, "Scott Chacon") == 0);
 		must_be_true(strcmp(committer->email, "schacon@gmail.com") == 0);
+		must_be_true(message != NULL);
 		must_be_true(strchr(message, '\n') != NULL);
 		must_be_true(commit_time > 0);
 		must_be_true(parents <= 2);
 		for (p = 0;p < parents;p++) {
 			if (old_parent != NULL)
-				git_commit_close(old_parent);
+				git_commit_free(old_parent);
 
 			old_parent = parent;
 			must_pass(git_commit_parent(&parent, commit, p));
 			must_be_true(parent != NULL);
 			must_be_true(git_commit_author(parent) != NULL); // is it really a commit?
 		}
-		git_commit_close(old_parent);
-		git_commit_close(parent);
+		git_commit_free(old_parent);
+		git_commit_free(parent);
 
 		must_fail(git_commit_parent(&parent, commit, parents));
-		git_commit_close(commit);
+		git_commit_free(commit);
 	}
 
 	git_repository_free(repo);
@@ -655,8 +665,8 @@ BEGIN_TEST(write0, "write a new commit object from memory to disk")
 		tree,
 		1, parent));
 
-	git_object_close((git_object *)parent);
-	git_object_close((git_object *)tree);
+	git_object_free((git_object *)parent);
+	git_object_free((git_object *)tree);
 
 	git_signature_free(committer);
 	git_signature_free(author);
@@ -680,9 +690,13 @@ BEGIN_TEST(write0, "write a new commit object from memory to disk")
 
 	must_be_true(strcmp(git_commit_message(commit), COMMIT_MESSAGE) == 0);
 
+#ifndef GIT_WIN32
+	must_be_true((loose_object_mode(REPOSITORY_FOLDER, (git_object *)commit) & 0777) == GIT_OBJECT_FILE_MODE);
+#endif
+
 	must_pass(remove_loose_object(REPOSITORY_FOLDER, (git_object *)commit));
 
-	git_commit_close(commit);
+	git_commit_free(commit);
 	git_repository_free(repo);
 END_TEST
 
@@ -728,7 +742,7 @@ BEGIN_TEST(root0, "create a root commit")
 		tree,
 		0));
 
-	git_object_close((git_object *)tree);
+	git_object_free((git_object *)tree);
 	git_signature_free(committer);
 	git_signature_free(author);
 
@@ -745,13 +759,16 @@ BEGIN_TEST(root0, "create a root commit")
 	must_be_true(!strcmp(git_commit_message(commit), ROOT_COMMIT_MESSAGE));
 
 	/* Remove the data we just added to the repo */
+	git_reference_free(head);
 	must_pass(git_reference_lookup(&head, repo, "HEAD"));
 	must_pass(git_reference_set_target(head, head_old));
 	must_pass(git_reference_delete(branch));
 	must_pass(remove_loose_object(REPOSITORY_FOLDER, (git_object *)commit));
-	free(head_old);
-	git_commit_close(commit);
+	git__free(head_old);
+	git_commit_free(commit);
 	git_repository_free(repo);
+
+	git_reference_free(head);
 END_TEST
 
 BEGIN_SUITE(commit)

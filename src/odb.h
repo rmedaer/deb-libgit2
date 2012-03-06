@@ -14,6 +14,10 @@
 #include "vector.h"
 #include "cache.h"
 
+#define GIT_OBJECTS_DIR "objects/"
+#define GIT_OBJECT_DIR_MODE 0777
+#define GIT_OBJECT_FILE_MODE 0444
+
 /* DO NOT EXPORT */
 typedef struct {
 	void *data;			/**< Raw, decompressed object data. */
@@ -29,7 +33,7 @@ struct git_odb_object {
 
 /* EXPORT */
 struct git_odb {
-	void *_internal;
+	git_refcount rc;
 	git_vector backends;
 	git_cache cache;
 };

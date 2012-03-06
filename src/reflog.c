@@ -25,8 +25,8 @@ static int reflog_init(git_reflog **reflog, git_reference *ref)
 	log->ref_name = git__strdup(ref->name);
 
 	if (git_vector_init(&log->entries, 0, NULL) < 0) {
-		free(log->ref_name);
-		free(log);
+		git__free(log->ref_name);
+		git__free(log);
 		return GIT_ENOMEM;
 	}
 
@@ -41,7 +41,7 @@ static int reflog_write(const char *log_path, const char *oid_old,
 {
 	int error;
 	git_buf log = GIT_BUF_INIT;
-	git_filebuf fbuf;
+	git_filebuf fbuf = GIT_FILEBUF_INIT;
 
 	assert(log_path && oid_old && oid_new && committer);
 
@@ -51,7 +51,7 @@ static int reflog_write(const char *log_path, const char *oid_old,
 	git_buf_puts(&log, oid_new);
 
 	git_signature__writebuf(&log, " ", committer);
-	log.size--; /* drop LF */
+	git_buf_truncate(&log, log.size - 1); /* drop LF */
 
 	if (msg) {
 		if (strchr(msg, '\n')) {
@@ -65,15 +65,21 @@ static int reflog_write(const char *log_path, const char *oid_old,
 
 	git_buf_putc(&log, '\n');
 
+	if ((error = git_buf_lasterror(&log)) < GIT_SUCCESS) {
+		git_buf_free(&log);
+		return git__rethrow(error, "Failed to write reflog. Memory allocation failure");
+	}
+
 	if ((error = git_filebuf_open(&fbuf, log_path, GIT_FILEBUF_APPEND)) < GIT_SUCCESS) {
 		git_buf_free(&log);
-		return git__throw(GIT_ERROR, "Failed to write reflog. Cannot open reflog `%s`", log_path);
+		return git__rethrow(error, "Failed to write reflog. Cannot open reflog `%s`", log_path);
 	}
 
 	git_filebuf_write(&fbuf, log.ptr, log.size);
-	error = git_filebuf_commit(&fbuf);
+	error = git_filebuf_commit(&fbuf, GIT_REFLOG_FILE_MODE);
 
 	git_buf_free(&log);
+
 	return error == GIT_SUCCESS ? GIT_SUCCESS : git__rethrow(error, "Failed to write reflog");
 }
 
@@ -86,8 +92,8 @@ static int reflog_parse(git_reflog *log, const char *buf, size_t buf_size)
 #define seek_forward(_increase) { \
 	if (_increase >= buf_size) { \
 		if (entry->committer) \
-			free(entry->committer); \
-		free(entry); \
+			git__free(entry->committer); \
+		git__free(entry); \
 		return git__throw(GIT_ERROR, "Failed to seek forward. Buffer size exceeded"); \
 	} \
 	buf += _increase; \
@@ -101,13 +107,13 @@ static int reflog_parse(git_reflog *log, const char *buf, size_t buf_size)
 		entry->committer = NULL;
 
 		if (git_oid_fromstrn(&entry->oid_old, buf, GIT_OID_HEXSZ) < GIT_SUCCESS) {
-			free(entry);
+			git__free(entry);
 			return GIT_ERROR;
 		}
 		seek_forward(GIT_OID_HEXSZ + 1);
 
 		if (git_oid_fromstrn(&entry->oid_cur, buf, GIT_OID_HEXSZ) < GIT_SUCCESS) {
-			free(entry);
+			git__free(entry);
 			return GIT_ERROR;
 		}
 		seek_forward(GIT_OID_HEXSZ + 1);
@@ -120,13 +126,13 @@ static int reflog_parse(git_reflog *log, const char *buf, size_t buf_size)
 
 		entry->committer = git__malloc(sizeof(git_signature));
 		if (entry->committer == NULL) {
-			free(entry);
+			git__free(entry);
 			return GIT_ENOMEM;
 		}
 
 		if ((error = git_signature__parse(entry->committer, &ptr, buf + 1, NULL, *buf)) < GIT_SUCCESS) {
-			free(entry->committer);
-			free(entry);
+			git__free(entry->committer);
+			git__free(entry);
 			return git__rethrow(error, "Failed to parse reflog. Could not parse signature");
 		}
 
@@ -164,19 +170,19 @@ void git_reflog_free(git_reflog *reflog)
 
 		git_signature_free(entry->committer);
 
-		free(entry->msg);
-		free(entry);
+		git__free(entry->msg);
+		git__free(entry);
 	}
 
 	git_vector_free(&reflog->entries);
-	free(reflog->ref_name);
-	free(reflog);
+	git__free(reflog->ref_name);
+	git__free(reflog);
 }
 
 int git_reflog_read(git_reflog **reflog, git_reference *ref)
 {
 	int error;
-	char log_path[GIT_PATH_MAX];
+	git_buf log_path = GIT_BUF_INIT;
 	git_fbuffer log_file = GIT_FBUFFER_INIT;
 	git_reflog *log = NULL;
 
@@ -185,23 +191,28 @@ int git_reflog_read(git_reflog **reflog, git_reference *ref)
 	if ((error = reflog_init(&log, ref)) < GIT_SUCCESS)
 		return git__rethrow(error, "Failed to read reflog. Cannot init reflog");
 
-	git_path_join_n(log_path, 3, ref->owner->path_repository, GIT_REFLOG_DIR, ref->name);
+	error = git_buf_join_n(&log_path, '/', 3,
+		ref->owner->path_repository, GIT_REFLOG_DIR, ref->name);
+	if (error < GIT_SUCCESS)
+		goto cleanup;
 
-	if ((error = git_futils_readbuffer(&log_file, log_path)) < GIT_SUCCESS) {
-		git_reflog_free(log);
-		return git__rethrow(error, "Failed to read reflog. Cannot read file `%s`", log_path);
+	if ((error = git_futils_readbuffer(&log_file, log_path.ptr)) < GIT_SUCCESS) {
+		git__rethrow(error, "Failed to read reflog. Cannot read file `%s`", log_path.ptr);
+		goto cleanup;
 	}
 
-	error = reflog_parse(log, log_file.data, log_file.len);
-
-	git_futils_freebuffer(&log_file);
-
-	if (error == GIT_SUCCESS)
-		*reflog = log;
+	if ((error = reflog_parse(log, log_file.data, log_file.len)) < GIT_SUCCESS)
+		git__rethrow(error, "Failed to read reflog");
 	else
-		git_reflog_free(log);
+		*reflog = log;
 
-	return error == GIT_SUCCESS ? GIT_SUCCESS : git__rethrow(error, "Failed to read reflog");
+cleanup:
+	if (error != GIT_SUCCESS && log != NULL)
+		git_reflog_free(log);
+	git_futils_freebuffer(&log_file);
+	git_buf_free(&log_path);
+
+	return error;
 }
 
 int git_reflog_write(git_reference *ref, const git_oid *oid_old,
@@ -210,35 +221,93 @@ int git_reflog_write(git_reference *ref, const git_oid *oid_old,
 	int error;
 	char old[GIT_OID_HEXSZ+1];
 	char new[GIT_OID_HEXSZ+1];
-	char log_path[GIT_PATH_MAX];
+	git_buf log_path = GIT_BUF_INIT;
 	git_reference *r;
 	const git_oid *oid;
 
 	if ((error = git_reference_resolve(&r, ref)) < GIT_SUCCESS)
-		return git__rethrow(error, "Failed to write reflog. Cannot resolve reference `%s`", ref->name);
+		return git__rethrow(error,
+			"Failed to write reflog. Cannot resolve reference `%s`", ref->name);
 
 	oid = git_reference_oid(r);
-	if (oid == NULL)
-		return git__throw(GIT_ERROR, "Failed to write reflog. Cannot resolve reference `%s`", r->name);
+	if (oid == NULL) {
+		error = git__throw(GIT_ERROR,
+			"Failed to write reflog. Cannot resolve reference `%s`", r->name);
+		git_reference_free(r);
+		return error;
+	}
 
 	git_oid_to_string(new, GIT_OID_HEXSZ+1, oid);
 
-	git_path_join_n(log_path, 3, ref->owner->path_repository, GIT_REFLOG_DIR, ref->name);
+	git_reference_free(r);
 
-	if (git_futils_exists(log_path)) {
-		if ((error = git_futils_mkpath2file(log_path)) < GIT_SUCCESS)
-			return git__rethrow(error, "Failed to write reflog. Cannot create reflog directory");
-	} else if (git_futils_isfile(log_path)) {
-		return git__throw(GIT_ERROR, "Failed to write reflog. `%s` is directory", log_path);
-	} else if (oid_old == NULL)
-		return git__throw(GIT_ERROR, "Failed to write reflog. Old OID cannot be NULL for existing reference");
+	error = git_buf_join_n(&log_path, '/', 3,
+		ref->owner->path_repository, GIT_REFLOG_DIR, ref->name);
+	if (error < GIT_SUCCESS)
+		goto cleanup;
+
+	if (git_path_exists(log_path.ptr)) {
+		error = git_futils_mkpath2file(log_path.ptr, GIT_REFLOG_DIR_MODE);
+		if (error < GIT_SUCCESS)
+			git__rethrow(error,
+				"Failed to write reflog. Cannot create reflog directory");
+	} else if (git_path_isfile(log_path.ptr)) {
+		error = git__throw(GIT_ERROR,
+			"Failed to write reflog. `%s` is directory", log_path.ptr);
+	} else if (oid_old == NULL) {
+		error = git__throw(GIT_ERROR,
+			"Failed to write reflog. Old OID cannot be NULL for existing reference");
+	}
+
+	if (error < GIT_SUCCESS)
+		goto cleanup;
 
 	if (oid_old)
-		git_oid_to_string(old, GIT_OID_HEXSZ+1, oid_old);
+		git_oid_to_string(old, sizeof(old), oid_old);
 	else
-		p_snprintf(old, GIT_OID_HEXSZ+1, "%0*d", GIT_OID_HEXSZ, 0);
+		p_snprintf(old, sizeof(old), "%0*d", GIT_OID_HEXSZ, 0);
 
-	return reflog_write(log_path, old, new, committer, msg);
+	error = reflog_write(log_path.ptr, old, new, committer, msg);
+
+cleanup:
+	git_buf_free(&log_path);
+	return error;
+}
+
+int git_reflog_rename(git_reference *ref, const char *new_name)
+{
+	int error;
+	git_buf old_path = GIT_BUF_INIT;
+	git_buf new_path = GIT_BUF_INIT;
+
+	if (git_buf_join_n(&old_path, '/', 3, ref->owner->path_repository,
+					   GIT_REFLOG_DIR, ref->name) &&
+		git_buf_join_n(&new_path, '/', 3, ref->owner->path_repository,
+					   GIT_REFLOG_DIR, new_name))
+		error = p_rename(git_buf_cstr(&old_path), git_buf_cstr(&new_path));
+	else
+		error = GIT_ENOMEM;
+
+	git_buf_free(&old_path);
+	git_buf_free(&new_path);
+
+	return error;
+}
+
+int git_reflog_delete(git_reference *ref)
+{
+	int error = GIT_SUCCESS;
+	git_buf path = GIT_BUF_INIT;
+
+	error = git_buf_join_n(&path, '/', 3,
+		ref->owner->path_repository, GIT_REFLOG_DIR, ref->name);
+
+	if (error == GIT_SUCCESS && git_path_exists(path.ptr) == 0)
+		error = p_unlink(path.ptr);
+
+	git_buf_free(&path);
+
+	return error;
 }
 
 unsigned int git_reflog_entrycount(git_reflog *reflog)

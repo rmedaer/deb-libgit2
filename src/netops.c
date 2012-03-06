@@ -8,6 +8,7 @@
 #	include <sys/types.h>
 #	include <sys/socket.h>
 #	include <sys/select.h>
+#	include <sys/time.h>
 #	include <netdb.h>
 #else
 #	define _WIN32_WINNT 0x0501
@@ -23,6 +24,7 @@
 
 #include "common.h"
 #include "netops.h"
+#include "posix.h"
 
 void gitno_buffer_setup(gitno_buffer *buf, char *data, unsigned int len, int fd)
 {
@@ -138,6 +140,7 @@ int gitno_send(GIT_SOCKET s, const char *msg, size_t len, int flags)
 	return off;
 }
 
+
 #ifdef GIT_WIN32
 int gitno_close(GIT_SOCKET s)
 {
@@ -188,7 +191,7 @@ int gitno_extract_host_and_port(char **host, char **port, const char *url, const
 	delim = colon == NULL ? slash : colon;
 	*host = git__strndup(url, delim - url);
 	if (*host == NULL) {
-		free(*port);
+		git__free(*port);
 		error = GIT_ENOMEM;
 	}
 

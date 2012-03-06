@@ -8,7 +8,6 @@
 #define INCLUDE_common_h__
 
 #include "git2/common.h"
-#include "git2/thread-utils.h"
 #include "cc-compat.h"
 
 #include <assert.h>
@@ -34,10 +33,6 @@
 
 # define snprintf _snprintf
 
-#ifndef _SSIZE_T_DEFINED
-typedef SSIZE_T ssize_t;
-#endif
-
 #else
 # include <unistd.h>
 
@@ -60,5 +55,6 @@ extern void git___rethrow(const char *, ...) GIT_FORMAT_PRINTF(1, 2);
 	(git___rethrow(__VA_ARGS__), error)
 
 #include "util.h"
+
 
 #endif /* INCLUDE_common_h__ */

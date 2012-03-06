@@ -10,11 +10,13 @@
 #include "filebuf.h"
 #include "fileops.h"
 
+#define GIT_LOCK_FILE_MODE 0644
+
 static const size_t WRITE_BUFFER_SIZE = (4096 * 2);
 
 static int lock_file(git_filebuf *file, int flags)
 {
-	if (git_futils_exists(file->path_lock) == 0) {
+	if (git_path_exists(file->path_lock) == 0) {
 		if (flags & GIT_FILEBUF_FORCE)
 			p_unlink(file->path_lock);
 		else
@@ -23,15 +25,16 @@ static int lock_file(git_filebuf *file, int flags)
 
 	/* create path to the file buffer is required */
 	if (flags & GIT_FILEBUF_FORCE) {
-		file->fd = git_futils_creat_locked_withpath(file->path_lock, 0644);
+		/* XXX: Should dirmode here be configurable? Or is 0777 always fine? */
+		file->fd = git_futils_creat_locked_withpath(file->path_lock, 0777, GIT_LOCK_FILE_MODE);
 	} else {
-		file->fd = git_futils_creat_locked(file->path_lock, 0644);
+		file->fd = git_futils_creat_locked(file->path_lock, GIT_LOCK_FILE_MODE);
 	}
 
 	if (file->fd < 0)
 		return git__throw(GIT_EOSERR, "Failed to create lock");
 
-	if ((flags & GIT_FILEBUF_APPEND) && git_futils_exists(file->path_original) == 0) {
+	if ((flags & GIT_FILEBUF_APPEND) && git_path_exists(file->path_original) == 0) {
 		git_file source;
 		char buffer[2048];
 		size_t read_bytes;
@@ -57,19 +60,28 @@ void git_filebuf_cleanup(git_filebuf *file)
 	if (file->fd >= 0)
 		p_close(file->fd);
 
-	if (file->fd >= 0 && file->path_lock && git_futils_exists(file->path_lock) == GIT_SUCCESS)
+	if (file->fd >= 0 && file->path_lock && git_path_exists(file->path_lock) == GIT_SUCCESS)
 		p_unlink(file->path_lock);
 
 	if (file->digest)
 		git_hash_free_ctx(file->digest);
 
-	free(file->buffer);
-	free(file->z_buf);
+	if (file->buffer)
+		git__free(file->buffer);
 
-	deflateEnd(&file->zs);
+	/* use the presence of z_buf to decide if we need to deflateEnd */
+	if (file->z_buf) {
+		git__free(file->z_buf);
+		deflateEnd(&file->zs);
+	}
 
-	free(file->path_original);
-	free(file->path_lock);
+	if (file->path_original)
+		git__free(file->path_original);
+	if (file->path_lock)
+		git__free(file->path_lock);
+
+	memset(file, 0x0, sizeof(git_filebuf));
+	file->fd = -1;
 }
 
 GIT_INLINE(int) flush_buffer(git_filebuf *file)
@@ -134,6 +146,9 @@ int git_filebuf_open(git_filebuf *file, const char *path, int flags)
 
 	assert(file && path);
 
+	if (file->buffer)
+		return git__throw(GIT_EINVALIDARGS, "Tried to reopen an open filebuf");
+
 	memset(file, 0x0, sizeof(git_filebuf));
 
 	file->buf_size = WRITE_BUFFER_SIZE;
@@ -181,18 +196,19 @@ int git_filebuf_open(git_filebuf *file, const char *path, int flags)
 
 	/* If we are writing to a temp file */
 	if (flags & GIT_FILEBUF_TEMPORARY) {
-		char tmp_path[GIT_PATH_MAX];
+		git_buf tmp_path = GIT_BUF_INIT;
 
 		/* Open the file as temporary for locking */
-		file->fd = git_futils_mktmp(tmp_path, path);
+		file->fd = git_futils_mktmp(&tmp_path, path);
 		if (file->fd < 0) {
+			git_buf_free(&tmp_path);
 			error = GIT_EOSERR;
 			goto cleanup;
 		}
 
 		/* No original path */
 		file->path_original = NULL;
-		file->path_lock = git__strdup(tmp_path);
+		file->path_lock = git_buf_detach(&tmp_path);
 
 		if (file->path_lock == NULL) {
 			error = GIT_ENOMEM;
@@ -246,17 +262,17 @@ int git_filebuf_hash(git_oid *oid, git_filebuf *file)
 	return GIT_SUCCESS;
 }
 
-int git_filebuf_commit_at(git_filebuf *file, const char *path)
+int git_filebuf_commit_at(git_filebuf *file, const char *path, mode_t mode)
 {
-	free(file->path_original);
+	git__free(file->path_original);
 	file->path_original = git__strdup(path);
 	if (file->path_original == NULL)
 		return GIT_ENOMEM;
 
-	return git_filebuf_commit(file);
+	return git_filebuf_commit(file, mode);
 }
 
-int git_filebuf_commit(git_filebuf *file)
+int git_filebuf_commit(git_filebuf *file, mode_t mode)
 {
 	int error;
 
@@ -270,7 +286,12 @@ int git_filebuf_commit(git_filebuf *file)
 	p_close(file->fd);
 	file->fd = -1;
 
-	error = git_futils_mv_atomic(file->path_lock, file->path_original);
+	if (p_chmod(file->path_lock, mode)) {
+		error = git__throw(GIT_EOSERR, "Failed to chmod locked file before committing");
+		goto cleanup;
+	}
+
+	error = p_rename(file->path_lock, file->path_original);
 
 cleanup:
 	git_filebuf_cleanup(file);
@@ -368,12 +389,12 @@ int git_filebuf_printf(git_filebuf *file, const char *format, ...)
 	va_end(arglist);
 
 	if (len < 0) {
-		free(tmp_buffer);
+		git__free(tmp_buffer);
 		return git__throw(GIT_EOSERR, "Failed to format string");
 	}
 
 	error = git_filebuf_write(file, tmp_buffer, len);
-	free(tmp_buffer);
+	git__free(tmp_buffer);
 
 	return error;
 }

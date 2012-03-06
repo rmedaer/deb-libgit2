@@ -27,9 +27,13 @@ struct git_tree {
 
 struct git_treebuilder {
 	git_vector entries;
-	size_t entry_count;
 };
 
+
+GIT_INLINE(unsigned int) entry_is_tree(const struct git_tree_entry *e)
+{
+	return e->attr & 040000;
+}
 
 void git_tree__free(git_tree *tree);
 int git_tree__parse(git_tree *tree, git_odb_object *obj);

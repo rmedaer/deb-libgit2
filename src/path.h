@@ -8,6 +8,14 @@
 #define INCLUDE_path_h__
 
 #include "common.h"
+#include "buffer.h"
+
+/**
+ * Path manipulation utils
+ *
+ * These are path utilities that munge paths without actually
+ * looking at the real filesystem.
+ */
 
 /*
  * The dirname() function shall take a pointer to a character string
@@ -22,11 +30,13 @@
  * The `git_path_dirname` implementation is thread safe. The returned
  * string must be manually free'd.
  *
- * The `git_path_dirname_r` implementation expects a string allocated
- * by the user with big enough size.
+ * The `git_path_dirname_r` implementation writes the dirname to a `git_buf`
+ * if the buffer pointer is not NULL.
+ * It returns an error code < 0 if there is an allocation error, otherwise
+ * the length of the dirname (which will be > 0).
  */
 extern char *git_path_dirname(const char *path);
-extern int git_path_dirname_r(char *buffer, size_t bufflen, const char *path);
+extern int git_path_dirname_r(git_buf *buffer, const char *path);
 
 /*
  * This function returns the basename of the file, which is the last
@@ -40,34 +50,39 @@ extern int git_path_dirname_r(char *buffer, size_t bufflen, const char *path);
  * The `git_path_basename` implementation is thread safe. The returned
  * string must be manually free'd.
  *
- * The `git_path_basename_r` implementation expects a string allocated
- * by the user with big enough size.
+ * The `git_path_basename_r` implementation writes the basename to a `git_buf`.
+ * It returns an error code < 0 if there is an allocation error, otherwise
+ * the length of the basename (which will be >= 0).
  */
 extern char *git_path_basename(const char *path);
-extern int git_path_basename_r(char *buffer, size_t bufflen, const char *path);
+extern int git_path_basename_r(git_buf *buffer, const char *path);
 
 extern const char *git_path_topdir(const char *path);
 
 /**
- * Join two paths together. Takes care of properly fixing the
- * middle slashes and everything
+ * Find offset to root of path if path has one.
  *
- * The paths are joined together into buffer_out; this is expected
- * to be an user allocated buffer of `GIT_PATH_MAX` size
+ * This will return a number >= 0 which is the offset to the start of the
+ * path, if the path is rooted (i.e. "/rooted/path" returns 0 and
+ * "c:/windows/rooted/path" returns 2).  If the path is not rooted, this
+ * returns < 0.
  */
-extern void git_path_join_n(char *buffer_out, int npath, ...);
+extern int git_path_root(const char *path);
 
-GIT_INLINE(void) git_path_join(char *buffer_out, const char *path_a, const char *path_b)
-{
-	git_path_join_n(buffer_out, 2, path_a, path_b);
-}
+/**
+ * Ensure path has a trailing '/'.
+ */
+extern int git_path_to_dir(git_buf *path);
 
-int git_path_root(const char *path);
-
-int git_path_prettify(char *path_out, const char *path, const char *base);
-int git_path_prettify_dir(char *path_out, const char *path, const char *base);
+/**
+ * Ensure string has a trailing '/' if there is space for it.
+ */
+extern void git_path_string_to_dir(char* path, size_t size);
 
 #ifdef GIT_WIN32
+/**
+ * Convert backslashes in path to forward slashes.
+ */
 GIT_INLINE(void) git_path_mkposix(char *path)
 {
 	while (*path) {
@@ -80,5 +95,125 @@ GIT_INLINE(void) git_path_mkposix(char *path)
 #else
 #	define git_path_mkposix(p) /* blank */
 #endif
+
+extern int git__percent_decode(git_buf *decoded_out, const char *input);
+
+/**
+ * Extract path from file:// URL.
+ */
+extern int git_path_fromurl(git_buf *local_path_out, const char *file_url);
+
+
+/**
+ * Path filesystem utils
+ *
+ * These are path utilities that actually access the filesystem.
+ */
+
+/**
+ * Check if a file exists and can be accessed.
+ * @return GIT_SUCCESS if file exists, < 0 otherwise.
+ */
+extern int git_path_exists(const char *path);
+
+/**
+ * Check if the given path points to a directory.
+ * @return GIT_SUCCESS if it is a directory, < 0 otherwise.
+ */
+extern int git_path_isdir(const char *path);
+
+/**
+ * Check if the given path points to a regular file.
+ * @return GIT_SUCCESS if it is a regular file, < 0 otherwise.
+ */
+extern int git_path_isfile(const char *path);
+
+/**
+ * Check if the given path contains the given subdirectory.
+ *
+ * @param parent Directory path that might contain subdir
+ * @param subdir Subdirectory name to look for in parent
+ * @param append_if_exists If true, then subdir will be appended to the parent path if it does exist
+ * @return GIT_SUCCESS if subdirectory exists, < 0 otherwise.
+ */
+extern int git_path_contains_dir(git_buf *parent, const char *subdir, int append_if_exists);
+
+/**
+ * Check if the given path contains the given file.
+ *
+ * @param dir Directory path that might contain file
+ * @param file File name to look for in parent
+ * @param append_if_exists If true, then file will be appended to the path if it does exist
+ * @return GIT_SUCCESS if file exists, < 0 otherwise.
+ */
+extern int git_path_contains_file(git_buf *dir, const char *file, int append_if_exists);
+
+/**
+ * Clean up path, prepending base if it is not already rooted.
+ */
+extern int git_path_prettify(git_buf *path_out, const char *path, const char *base);
+
+/**
+ * Clean up path, prepending base if it is not already rooted and
+ * appending a slash.
+ */
+extern int git_path_prettify_dir(git_buf *path_out, const char *path, const char *base);
+
+/**
+ * Get a directory from a path.
+ *
+ * If path is a directory, this acts like `git_path_prettify_dir`
+ * (cleaning up path and appending a '/').  If path is a normal file,
+ * this prettifies it, then removed the filename a la dirname and
+ * appends the trailing '/'.  If the path does not exist, it is
+ * treated like a regular filename.
+ */
+extern int git_path_find_dir(git_buf *dir, const char *path, const char *base);
+
+/**
+ * Walk each directory entry, except '.' and '..', calling fn(state).
+ *
+ * @param pathbuf buffer the function reads the initial directory
+ * 		path from, and updates with each successive entry's name.
+ * @param fn function to invoke with each entry. The first arg is
+ *		the input state and the second arg is pathbuf. The function
+ *		may modify the pathbuf, but only by appending new text.
+ * @param state to pass to fn as the first arg.
+ */
+extern int git_path_direach(
+	git_buf *pathbuf,
+	int (*fn)(void *, git_buf *),
+	void *state);
+
+/**
+ * Sort function to order two paths.
+ */
+extern int git_path_cmp(
+	const char *name1, int len1, int isdir1,
+	const char *name2, int len2, int isdir2);
+
+/**
+ * Invoke callback up path directory by directory until the ceiling is
+ * reached (inclusive of a final call at the root_path).
+ *
+ * Returning anything other than GIT_SUCCESS from the callback function
+ * will stop the iteration and propogate the error to the caller.
+ *
+ * @param pathbuf Buffer the function reads the directory from and
+ *		and updates with each successive name.
+ * @param ceiling Prefix of path at which to stop walking up.  If NULL,
+ *      this will walk all the way up to the root.  If not a prefix of
+ *      pathbuf, the callback will be invoked a single time on the
+ *      original input path.
+ * @param fn Function to invoke on each path.  The first arg is the
+ *		input satte and the second arg is the pathbuf.  The function
+ *		should not modify the pathbuf.
+ * @param state Passed to fn as the first ath.
+ */
+extern int git_path_walk_up(
+	git_buf *pathbuf,
+	const char *ceiling,
+	int (*fn)(void *state, git_buf *),
+	void *state);
 
 #endif

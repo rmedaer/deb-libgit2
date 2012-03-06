@@ -18,11 +18,13 @@
 #include "cache.h"
 #include "refs.h"
 #include "buffer.h"
+#include "odb.h"
+#include "attr.h"
 
 #define DOT_GIT ".git"
 #define GIT_DIR DOT_GIT "/"
-#define GIT_OBJECTS_DIR "objects/"
-#define GIT_INDEX_FILE "index"
+#define GIT_DIR_MODE 0755
+#define GIT_BARE_DIR_MODE 0777
 
 struct git_object {
 	git_cached_obj cached;
@@ -31,15 +33,16 @@ struct git_object {
 };
 
 struct git_repository {
-	git_odb *db;
+	git_odb *_odb;
+	git_config *_config;
+	git_index *_index;
 
 	git_cache objects;
 	git_refcache references;
+	git_attr_cache attrcache;
 
 	char *path_repository;
-	char *path_index;
-	char *path_odb;
-	char *path_workdir;
+	char *workdir;
 
 	unsigned is_bare:1;
 	unsigned int lru_counter;
@@ -51,5 +54,9 @@ void git_object__free(void *object);
 
 int git_oid__parse(git_oid *oid, const char **buffer_out, const char *buffer_end, const char *header);
 void git_oid__writebuf(git_buf *buf, const char *header, const git_oid *oid);
+
+int git_repository_config__weakptr(git_config **out, git_repository *repo);
+int git_repository_odb__weakptr(git_odb **out, git_repository *repo);
+int git_repository_index__weakptr(git_index **out, git_repository *repo);
 
 #endif

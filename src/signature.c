@@ -15,9 +15,11 @@ void git_signature_free(git_signature *sig)
 	if (sig == NULL)
 		return;
 
-	free(sig->name);
-	free(sig->email);
-	free(sig);
+	git__free(sig->name);
+	sig->name = NULL;
+	git__free(sig->email);
+	sig->email = NULL;
+	git__free(sig);
 }
 
 static const char *skip_leading_spaces(const char *buffer, const char *buffer_end)
@@ -279,7 +281,7 @@ int git_signature__parse(git_signature *sig, const char **buffer_out,
 	if ((name_end = strchr(buffer, '<')) == NULL)
 		return git__throw(GIT_EOBJCORRUPTED, "Failed to parse signature. Cannot find '<' in signature");
 
-	if ((email_end = strchr(buffer, '>')) == NULL)
+	if ((email_end = strchr(name_end, '>')) == NULL)
 		return git__throw(GIT_EOBJCORRUPTED, "Failed to parse signature. Cannot find '>' in signature");
 
 	if (email_end < name_end)

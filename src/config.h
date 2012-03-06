@@ -14,10 +14,15 @@
 
 #define GIT_CONFIG_FILENAME ".gitconfig"
 #define GIT_CONFIG_FILENAME_INREPO "config"
+#define GIT_CONFIG_FILENAME_SYSTEM "gitconfig"
+#define GIT_CONFIG_FILE_MODE 0666
 
 struct git_config {
+	git_refcount rc;
 	git_vector files;
-	git_repository *repo;
 };
+
+extern int git_config_find_global_r(git_buf *global_config_path);
+extern int git_config_find_system_r(git_buf *system_config_path);
 
 #endif

@@ -20,7 +20,7 @@ What It Can Do
 libgit2 is already very usable.
 
 * SHA conversions, formatting and shortening
-* abstracked ODB backend system
+* abstracted ODB backend system
 * commit, tag, tree and blob parsing, editing, and write-back
 * tree traversal
 * revision walking
@@ -36,7 +36,7 @@ Building libgit2 - Using CMake
 ==============================
 
 libgit2 builds cleanly on most platforms without any external dependencies.
-Under Unix-like systems, like Linux, * BSD and Mac OS X, libgit2 expects `pthreads` to be available;
+Under Unix-like systems, like Linux, \*BSD and Mac OS X, libgit2 expects `pthreads` to be available;
 they should be installed by default on all systems. Under Windows, libgit2 uses the native Windows API
 for threading.
 
@@ -54,6 +54,10 @@ To install the library you can specify the install prefix by setting:
 
 	$ cmake .. -DCMAKE_INSTALL_PREFIX=/install/prefix
 	$ cmake --build . --target install
+
+If you want to build a universal binary for Mac OS X, CMake sets it
+all up for you if you use `-DCMAKE_OSX_ARCHITECTURES="i386;x86_64"`
+when configuring.
 
 For more advanced use or questions about CMake please read <http://www.cmake.org/Wiki/CMake_FAQ>.
 
@@ -81,12 +85,14 @@ Here are the bindings to libgit2 that are currently available:
 * node-gitteh (Node.js bindings) <https://github.com/libgit2/node-gitteh>
 * nodegit (Node.js bindings) <https://github.com/tbranyen/nodegit>
 * go-git (Go bindings) <https://github.com/str1ngs/go-git>
-* libqgit2 (C++ QT bindings) <https://projects.kde.org/projects/playground/libs/libqgit2/>
+* libqgit2 (C++ Qt bindings) <https://projects.kde.org/projects/playground/libs/libqgit2/>
 * libgit2-ocaml (ocaml bindings) <https://github.com/burdges/libgit2-ocaml>
 * Geef (Erlang bindings) <https://github.com/schacon/geef>
 * libgit2net (.NET bindings, low level) <https://github.com/txdv/libgit2net>
 * parrot-libgit2 (Parrot Virtual Machine bindings) <https://github.com/letolabs/parrot-libgit2>
 * hgit2 (Haskell bindings) <https://github.com/norm2782/hgit2>
+* git-xs-pm (Perl bindings) <https://github.com/ingydotnet/git-xs-pm>
+* libgit2.vapi (Vala bindings) <https://github.com/apmasell/vapis/blob/master/libgit2.vapi>
 
 If you start another language binding to libgit2, please let us know so
 we can add it to the list.

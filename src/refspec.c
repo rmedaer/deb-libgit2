@@ -23,8 +23,13 @@ int git_refspec_parse(git_refspec *refspec, const char *str)
 	}
 
 	delim = strchr(str, ':');
-	if (delim == NULL)
-		return git__throw(GIT_EOBJCORRUPTED, "Failed to parse refspec. No ':'");
+	if (delim == NULL) {
+		refspec->src = git__strdup(str);
+		if (refspec->src == NULL)
+			return GIT_ENOMEM;
+
+		return GIT_SUCCESS;
+	}
 
 	refspec->src = git__strndup(str, delim - str);
 	if (refspec->src == NULL)
@@ -32,7 +37,7 @@ int git_refspec_parse(git_refspec *refspec, const char *str)
 
 	refspec->dst = git__strdup(delim + 1);
 	if (refspec->dst == NULL) {
-		free(refspec->src);
+		git__free(refspec->src);
 		refspec->src = NULL;
 		return GIT_ENOMEM;
 	}
@@ -42,17 +47,17 @@ int git_refspec_parse(git_refspec *refspec, const char *str)
 
 const char *git_refspec_src(const git_refspec *refspec)
 {
-	return refspec->src;
+	return refspec == NULL ? NULL : refspec->src;
 }
 
 const char *git_refspec_dst(const git_refspec *refspec)
 {
-	return refspec->dst;
+	return refspec == NULL ? NULL : refspec->dst;
 }
 
 int git_refspec_src_match(const git_refspec *refspec, const char *refname)
 {
-	return git__fnmatch(refspec->src, refname, 0);
+	return (refspec == NULL || refspec->src == NULL) ? GIT_ENOMATCH : git__fnmatch(refspec->src, refname, 0);
 }
 
 int git_refspec_transform(char *out, size_t outlen, const git_refspec *spec, const char *name)
@@ -87,4 +92,22 @@ int git_refspec_transform(char *out, size_t outlen, const git_refspec *spec, con
 	memcpy(out + baselen, name, namelen + 1);
 
 	return GIT_SUCCESS;
+}
+
+int git_refspec_transform_r(git_buf *out, const git_refspec *spec, const char *name)
+{
+	if (git_buf_sets(out, spec->dst) < GIT_SUCCESS)
+		return git_buf_lasterror(out);
+
+	/*
+	 * No '*' at the end means that it's mapped to one specific local
+	 * branch, so no actual transformation is needed.
+	 */
+	if (out->size > 0 && out->ptr[out->size - 1] != '*')
+		return GIT_SUCCESS;
+
+	git_buf_truncate(out, out->size - 1); /* remove trailing '*' */
+	git_buf_puts(out, name + strlen(spec->src) - 1);
+
+	return git_buf_lasterror(out);
 }

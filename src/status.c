@@ -13,6 +13,7 @@
 #include "tree.h"
 #include "git2/status.h"
 #include "repository.h"
+#include "ignore.h"
 
 struct status_entry {
 	git_index_time mtime;
@@ -21,18 +22,16 @@ struct status_entry {
 	git_oid index_oid;
 	git_oid wt_oid;
 
-	unsigned int status_flags:6;
+	unsigned int status_flags;
 
 	char path[GIT_FLEX_ARRAY]; /* more */
 };
 
 static struct status_entry *status_entry_new(git_vector *entries, const char *path)
 {
-	struct status_entry *e = git__malloc(sizeof(*e) + strlen(path) + 1);
+	struct status_entry *e = git__calloc(sizeof(*e) + strlen(path) + 1, 1);
 	if (e == NULL)
 		return NULL;
-
-	memset(e, 0x0, sizeof(*e));
 
 	if (entries != NULL)
 		git_vector_insert(entries, e);
@@ -73,7 +72,7 @@ static void status_entry_update_from_index(struct status_entry *e, git_index *in
 	status_entry_update_from_index_entry(e, index_entry);
 }
 
-static int status_entry_update_from_workdir(struct status_entry *e, char* full_path)
+static int status_entry_update_from_workdir(struct status_entry *e, const char* full_path)
 {
 	struct stat filest;
 
@@ -119,13 +118,33 @@ static int status_entry_update_flags(struct status_entry *e)
 	return GIT_SUCCESS;
 }
 
+static int status_entry_is_ignorable(struct status_entry *e)
+{
+	/* don't ignore files that exist in head or index already */
+	return (e->status_flags == GIT_STATUS_WT_NEW);
+}
+
+static int status_entry_update_ignore(struct status_entry *e, git_ignores *ignores, const char *path)
+{
+	int error, ignored;
+
+	if ((error = git_ignore__lookup(ignores, path, &ignored)) == GIT_SUCCESS &&
+		ignored)
+		e->status_flags =
+			(e->status_flags & ~GIT_STATUS_WT_NEW) | GIT_STATUS_IGNORED;
+
+	return error;
+}
+
 struct status_st {
+	git_repository *repo;
 	git_vector *vector;
 	git_index *index;
 	git_tree *tree;
+	git_ignores *ignores;
 
 	int workdir_path_len;
-	char* head_tree_relative_path;
+	git_buf head_tree_relative_path;
 	int head_tree_relative_path_len;
 	unsigned int tree_position;
 	unsigned int index_position;
@@ -142,19 +161,19 @@ static int retrieve_head_tree(git_tree **tree_out, git_repository *repo)
 	*tree_out = NULL;
 
 	error = git_repository_head(&resolved_head_ref, repo);
-	if (error != GIT_SUCCESS && error != GIT_ENOTFOUND)
-		return git__rethrow(error, "HEAD can't be resolved");
-
 	/*
 	 * We assume that a situation where HEAD exists but can not be resolved is valid.
 	 * A new repository fits this description for instance.
 	 */
-
 	if (error == GIT_ENOTFOUND)
 		return GIT_SUCCESS;
+	if (error < GIT_SUCCESS)
+		return git__rethrow(error, "HEAD can't be resolved");
 
 	if ((error = git_commit_lookup(&head_commit, repo, git_reference_oid(resolved_head_ref))) < GIT_SUCCESS)
 		return git__rethrow(error, "The tip of HEAD can't be retrieved");
+
+	git_reference_free(resolved_head_ref);
 
 	if ((error = git_commit_tree(&tree, head_commit)) < GIT_SUCCESS) {
 		error = git__rethrow(error, "The tree of HEAD can't be retrieved");
@@ -164,55 +183,79 @@ static int retrieve_head_tree(git_tree **tree_out, git_repository *repo)
 	*tree_out = tree;
 
 exit:
-	git_commit_close(head_commit);
+	git_commit_free(head_commit);
 	return error;
 }
 
-#define GIT_STATUS_PATH_NULL	-2
-#define GIT_STATUS_PATH_IGNORE	-1
-#define GIT_STATUS_PATH_FILE	0
-#define GIT_STATUS_PATH_FOLDER	1
+enum path_type {
+	GIT_STATUS_PATH_NULL,
+	GIT_STATUS_PATH_IGNORE,
+	GIT_STATUS_PATH_FILE,
+	GIT_STATUS_PATH_FOLDER,
+};
 
-static int dirent_cb(void *state, char *full_path);
+static int dirent_cb(void *state, git_buf *full_path);
 static int alphasorted_futils_direach(
-	char *path, size_t path_sz,
-	int (*fn)(void *, char *), void *arg);
+	git_buf *path, int (*fn)(void *, git_buf *), void *arg);
 
-static int process_folder(struct status_st *st, const git_tree_entry *tree_entry, char *full_path, int path_type)
+static int process_folder(
+	struct status_st *st,
+	const git_tree_entry *tree_entry,
+	git_buf *full_path,
+	enum path_type path_type)
 {
 	git_object *subtree = NULL;
 	git_tree *pushed_tree = NULL;
 	int error, pushed_tree_position = 0;
-	git_otype tree_entry_type;
+	git_otype tree_entry_type = GIT_OBJ_BAD;
 
-	tree_entry_type = git_tree_entry_type(tree_entry);
+	if (tree_entry != NULL) {
+		tree_entry_type = git_tree_entry_type(tree_entry);
 
-	switch (tree_entry_type) {
-	case GIT_OBJ_TREE:
-		error = git_tree_entry_2object(&subtree, ((git_object *)(st->tree))->repo, tree_entry);
-		pushed_tree = st->tree;
-		pushed_tree_position = st->tree_position;
-		st->tree = (git_tree *)subtree;
-		st->tree_position = 0;
-		st->head_tree_relative_path_len += 1 + tree_entry->filename_len; /* path + '/' + name */
-		break;
+		switch (tree_entry_type) {
+		case GIT_OBJ_TREE:
+			error = git_tree_entry_2object(&subtree, ((git_object *)(st->tree))->repo, tree_entry);
+			pushed_tree = st->tree;
+			pushed_tree_position = st->tree_position;
+			st->tree = (git_tree *)subtree;
+			st->tree_position = 0;
+			st->head_tree_relative_path_len += 1 + tree_entry->filename_len; /* path + '/' + name */
+			break;
 
-	case GIT_OBJ_BLOB:
-		/* No op */
-		break;
+		case GIT_OBJ_BLOB:
+			/* No op */
+			break;
 
-	default:
-		error = git__throw(GIT_EINVALIDTYPE, "Unexpected tree entry type");	/* TODO: How should we deal with submodules? */
+		case GIT_OBJ_COMMIT:
+			/* TODO: proper submodule support */
+			break;
+
+		default:
+			return git__throw(GIT_EINVALIDTYPE, "Unexpected tree entry type");
+		}
 	}
 
-	if (full_path != NULL && path_type == GIT_STATUS_PATH_FOLDER)
-		error = alphasorted_futils_direach(full_path, GIT_PATH_MAX, dirent_cb, st);
-	else {
+
+	if (full_path != NULL && path_type == GIT_STATUS_PATH_FOLDER) {
+		git_ignores ignores, *old_ignores;
+
+		if ((error = git_ignore__for_path(st->repo,
+			full_path->ptr + st->workdir_path_len, &ignores)) == GIT_SUCCESS)
+		{
+			old_ignores = st->ignores;
+			st->ignores = &ignores;
+
+			error = alphasorted_futils_direach(full_path, dirent_cb, st);
+
+			git_ignore__free(st->ignores);
+			st->ignores = old_ignores;
+		}
+	} else {
 		error = dirent_cb(st, NULL);
 	}
 
 	if (tree_entry_type == GIT_OBJ_TREE) {
-		git_object_close(subtree);
+		git_object_free(subtree);
 		st->head_tree_relative_path_len -= 1 + tree_entry->filename_len;
 		st->tree = pushed_tree;
 		st->tree_position = pushed_tree_position;
@@ -226,23 +269,28 @@ static int store_if_changed(struct status_st *st, struct status_entry *e)
 {
 	int error;
 	if ((error = status_entry_update_flags(e)) < GIT_SUCCESS)
-			return git__throw(error, "Failed to process the file '%s'. It doesn't exist in the workdir, in the HEAD nor in the index", e->path);
+		return git__throw(error, "Failed to process the file '%s'. It doesn't exist in the workdir, in the HEAD nor in the index", e->path);
+
+	if (status_entry_is_ignorable(e) &&
+		(error = status_entry_update_ignore(e, st->ignores, e->path)) < GIT_SUCCESS)
+		return error;
 
 	if (e->status_flags == GIT_STATUS_CURRENT) {
-		free(e);
+		git__free(e);
 		return GIT_SUCCESS;
 	}
 
 	return git_vector_insert(st->vector, e);
 }
 
-static int determine_status(struct status_st *st,
+static int determine_status(
+	struct status_st *st,
 	int in_head, int in_index, int in_workdir,
 	const git_tree_entry *tree_entry,
 	const git_index_entry *index_entry,
-	char *full_path,
+	git_buf *full_path,
 	const char *status_path,
-	int path_type)
+	enum path_type path_type)
 {
 	struct status_entry *e;
 	int error = GIT_SUCCESS;
@@ -270,18 +318,29 @@ static int determine_status(struct status_st *st,
 		}
 
 		if (in_workdir)
-			if ((error = status_entry_update_from_workdir(e, full_path)) < GIT_SUCCESS)
+			if ((error = status_entry_update_from_workdir(
+					 e, full_path->ptr)) < GIT_SUCCESS)
 				return error;	/* The callee has already set the error message */
 
 		return store_if_changed(st, e);
 	}
 
-	/* Last option, we're dealing with a leftover folder tree entry */
-	assert(in_head && !in_index && !in_workdir && (tree_entry_type == GIT_OBJ_TREE));
-	return process_folder(st, tree_entry, full_path, path_type);
+	/* Are we dealing with a subtree? */
+	if (tree_entry_type == GIT_OBJ_TREE) {
+		assert(in_head && !in_index && !in_workdir);
+		return process_folder(st, tree_entry, full_path, path_type);
+	}
+
+	/* We're dealing with something else -- most likely a submodule;
+	 * skip it for now */
+	if (in_head)
+		st->tree_position++;
+	if (in_index)
+		st->index_position++;
+	return GIT_SUCCESS;
 }
 
-static int path_type_from(char *full_path, int is_dir)
+static int path_type_from(git_buf *full_path, int is_dir)
 {
 	if (full_path == NULL)
 		return GIT_STATUS_PATH_NULL;
@@ -289,7 +348,7 @@ static int path_type_from(char *full_path, int is_dir)
 	if (!is_dir)
 		return GIT_STATUS_PATH_FILE;
 
-	if (!git__suffixcmp(full_path, "/" DOT_GIT))
+	if (!git__suffixcmp(full_path->ptr, "/" DOT_GIT "/"))
 		return GIT_STATUS_PATH_IGNORE;
 
 	return GIT_STATUS_PATH_FOLDER;
@@ -324,42 +383,17 @@ static int compare(const char *left, const char *right)
 	return strcmp(left, right);
 }
 
-/*
- * Convenience method to enumerate a tree. Contrarily to the git_tree_entry_byindex()
- * method, it allows the tree to be enumerated to be NULL. In this case, every returned
- * tree entry will be NULL as well.
- */
-static const git_tree_entry *git_tree_entry_bypos(git_tree *tree, unsigned int idx)
-{
-	if (tree == NULL)
-		return NULL;
-
-	return git_vector_get(&tree->entries, idx);
-}
-
-/*
- * Convenience method to enumerate the index. This method is not supposed to be exposed
- * as part of the index API because it precludes that the index will not be altered
- * while the enumeration is being processed. Which wouldn't be very API friendly :)
- */
-static const git_index_entry *git_index_entry_bypos(git_index *index, unsigned int idx)
-{
-	assert(index);
-	return git_vector_get(&index->entries, idx);
-}
-
 /* Greatly inspired from JGit IndexTreeWalker */
 /* https://github.com/spearce/jgit/blob/ed47e29c777accfa78c6f50685a5df2b8f5b8ff5/org.spearce.jgit/src/org/spearce/jgit/lib/IndexTreeWalker.java#L88 */
 
-static int dirent_cb(void *state, char *a)
+static int dirent_cb(void *state, git_buf *a)
 {
 	const git_tree_entry *m;
 	const git_index_entry *entry;
-	int path_type;
+	enum path_type path_type;
 	int cmpma, cmpmi, cmpai, error;
 	const char *pm, *pa, *pi;
 	const char *m_name, *i_name, *a_name;
-
 	struct status_st *st = (struct status_st *)state;
 
 	path_type = path_type_from(a, st->is_dir);
@@ -367,19 +401,34 @@ static int dirent_cb(void *state, char *a)
 	if (path_type == GIT_STATUS_PATH_IGNORE)
 		return GIT_SUCCESS;	/* Let's skip the ".git" directory */
 
-	a_name = (path_type != GIT_STATUS_PATH_NULL) ? a + st->workdir_path_len : NULL;
+	a_name = (path_type != GIT_STATUS_PATH_NULL) ? a->ptr + st->workdir_path_len : NULL;
 
 	while (1) {
-		m = git_tree_entry_bypos(st->tree, st->tree_position);
-		entry = git_index_entry_bypos(st->index, st->index_position);
+		if (st->tree == NULL)
+			m = NULL;
+		else
+			m = git_tree_entry_byindex(st->tree, st->tree_position);
+
+		entry = git_index_get(st->index, st->index_position);
 
 		if ((m == NULL) && (a == NULL) && (entry == NULL))
 			return GIT_SUCCESS;
 
 		if (m != NULL) {
-			st->head_tree_relative_path[st->head_tree_relative_path_len] = '\0';
-			git_path_join(st->head_tree_relative_path, st->head_tree_relative_path, m->filename);
-			m_name = st->head_tree_relative_path;
+			git_buf_truncate(&st->head_tree_relative_path,
+							 st->head_tree_relative_path_len);
+			git_buf_joinpath(&st->head_tree_relative_path,
+							 st->head_tree_relative_path.ptr, m->filename);
+			/* When the tree entry is a folder, append a forward slash to its name */
+			if (git_tree_entry_type(m) == GIT_OBJ_TREE)
+				git_path_to_dir(&st->head_tree_relative_path);
+
+			error = git_buf_lasterror(&st->head_tree_relative_path);
+			if (error < GIT_SUCCESS)
+				return git__rethrow(error, "An error occured while "
+					"determining the status of '%s'", a->ptr);
+
+			m_name = st->head_tree_relative_path.ptr;
 		} else
 			m_name = NULL;
 
@@ -393,10 +442,11 @@ static int dirent_cb(void *state, char *a)
 		pa = ((cmpma >= 0) && (cmpai <= 0)) ? a_name : NULL;
 		pi = ((cmpmi >= 0) && (cmpai >= 0)) ? i_name : NULL;
 
-		if((error = determine_status(st, pm != NULL, pi != NULL, pa != NULL, m, entry, a, status_path(pm, pi, pa), path_type)) < GIT_SUCCESS)
-			return git__rethrow(error, "An error occured while determining the status of '%s'", a);
+		if ((error = determine_status(st, pm != NULL, pi != NULL, pa != NULL,
+				m, entry, a, status_path(pm, pi, pa), path_type)) < GIT_SUCCESS)
+			return git__rethrow(error, "An error occured while determining the status of '%s'", a->ptr);
 
-		if (pa != NULL)
+		if ((pa != NULL) || (path_type == GIT_STATUS_PATH_FOLDER))
 			return GIT_SUCCESS;
 	}
 }
@@ -411,20 +461,29 @@ static int status_cmp(const void *a, const void *b)
 
 #define DEFAULT_SIZE 16
 
-int git_status_foreach(git_repository *repo, int (*callback)(const char *, unsigned int, void *), void *payload)
+int git_status_foreach(
+	git_repository *repo,
+	int (*callback)(const char *, unsigned int, void *),
+	void *payload)
 {
 	git_vector entries;
+	git_ignores ignores;
 	git_index *index = NULL;
-	char temp_path[GIT_PATH_MAX];
-	char tree_path[GIT_PATH_MAX] = "";
-	struct status_st dirent_st;
+	git_buf temp_path = GIT_BUF_INIT;
+	struct status_st dirent_st = {0};
 	int error = GIT_SUCCESS;
 	unsigned int i;
 	git_tree *tree;
 	struct status_entry *e;
+	const char *workdir;
 
-	if ((error = git_repository_index(&index, repo)) < GIT_SUCCESS) {
-		return git__rethrow(error, "Failed to determine statuses. Index can't be opened");
+	if ((workdir = git_repository_workdir(repo)) == NULL)
+		return git__throw(GIT_ERROR,
+			"Cannot retrieve status on a bare repository");
+
+	if ((error = git_repository_index__weakptr(&index, repo)) < GIT_SUCCESS) {
+		return git__rethrow(error,
+			"Failed to determine statuses. Index can't be opened");
 	}
 
 	if ((error = retrieve_head_tree(&tree, repo)) < GIT_SUCCESS) {
@@ -434,28 +493,44 @@ int git_status_foreach(git_repository *repo, int (*callback)(const char *, unsig
 
 	git_vector_init(&entries, DEFAULT_SIZE, status_cmp);
 
-	dirent_st.workdir_path_len = strlen(repo->path_workdir);
+	dirent_st.repo = repo;
+	dirent_st.vector = &entries;
+	dirent_st.index = index;
+	dirent_st.tree = tree;
+	dirent_st.ignores = &ignores;
+	dirent_st.workdir_path_len = strlen(workdir);
+	git_buf_init(&dirent_st.head_tree_relative_path, 0);
+	dirent_st.head_tree_relative_path_len = 0;
 	dirent_st.tree_position = 0;
 	dirent_st.index_position = 0;
-	dirent_st.tree = tree;
-	dirent_st.index = index;
-	dirent_st.vector = &entries;
-	dirent_st.head_tree_relative_path = tree_path;
-	dirent_st.head_tree_relative_path_len = 0;
 	dirent_st.is_dir = 1;
 
-	strcpy(temp_path, repo->path_workdir);
-
-	if (git_futils_isdir(temp_path)) {
-		error = git__throw(GIT_EINVALIDPATH, "Failed to determine status of file '%s'. Provided path doesn't lead to a folder", temp_path);
+	if (git_path_isdir(workdir)) {
+		error = git__throw(GIT_EINVALIDPATH,
+			"Failed to determine status of file '%s'. "
+			"The given path doesn't lead to a folder", workdir);
 		goto exit;
 	}
 
-	if ((error = alphasorted_futils_direach(temp_path, sizeof(temp_path), dirent_cb, &dirent_st)) < GIT_SUCCESS)
-		error = git__rethrow(error, "Failed to determine statuses. An error occured while processing the working directory");
+	git_buf_sets(&temp_path, workdir);
 
-	if ((error == GIT_SUCCESS) && ((error = dirent_cb(&dirent_st, NULL)) < GIT_SUCCESS))
-		error = git__rethrow(error, "Failed to determine statuses. An error occured while post-processing the HEAD tree and the index");
+	error = git_ignore__for_path(repo, "", dirent_st.ignores);
+	if (error < GIT_SUCCESS)
+		goto exit;
+
+	error = alphasorted_futils_direach(
+		&temp_path, dirent_cb, &dirent_st);
+
+	if (error < GIT_SUCCESS)
+		error = git__rethrow(error,
+			"Failed to determine statuses. "
+			"An error occured while processing the working directory");
+
+	if ((error == GIT_SUCCESS) &&
+		((error = dirent_cb(&dirent_st, NULL)) < GIT_SUCCESS))
+		error = git__rethrow(error,
+			"Failed to determine statuses. "
+			"An error occured while post-processing the HEAD tree and the index");
 
 	for (i = 0; i < entries.length; ++i) {
 		e = (struct status_entry *)git_vector_get(&entries, i);
@@ -463,16 +538,19 @@ int git_status_foreach(git_repository *repo, int (*callback)(const char *, unsig
 		if (error == GIT_SUCCESS) {
 			error = callback(e->path, e->status_flags, payload);
 			if (error < GIT_SUCCESS)
-				error = git__rethrow(error, "Failed to determine statuses. User callback failed");
+				error = git__rethrow(error,
+					"Failed to determine statuses. User callback failed");
 		}
 
-		free(e);
+		git__free(e);
 	}
 
 exit:
+	git_buf_free(&dirent_st.head_tree_relative_path);
+	git_buf_free(&temp_path);
 	git_vector_free(&entries);
-	git_tree_close(tree);
-	git_index_free(index);
+	git_ignore__free(&ignores);
+	git_tree_free(tree);
 	return error;
 }
 
@@ -507,7 +585,7 @@ static int recurse_tree_entry(git_tree *tree, struct status_entry *e, const char
 		return git__throw(GIT_EOBJCORRUPTED, "Can't find tree object '%s'", tree_entry->filename);
 
 	error = recurse_tree_entry(subtree, e, dir_sep+1);
-	git_tree_close(subtree);
+	git_tree_free(subtree);
 	return error;
 }
 
@@ -515,108 +593,133 @@ int git_status_file(unsigned int *status_flags, git_repository *repo, const char
 {
 	struct status_entry *e;
 	git_index *index = NULL;
-	char temp_path[GIT_PATH_MAX];
+	git_buf temp_path = GIT_BUF_INIT;
 	int error = GIT_SUCCESS;
 	git_tree *tree = NULL;
+	const char *workdir;
 
 	assert(status_flags && repo && path);
 
-	git_path_join(temp_path, repo->path_workdir, path);
-	if (git_futils_isdir(temp_path) == GIT_SUCCESS)
-		return git__throw(GIT_EINVALIDPATH, "Failed to determine status of file '%s'. Provided path leads to a folder, not a file", path);
+	if ((workdir = git_repository_workdir(repo)) == NULL)
+		return git__throw(GIT_ERROR,
+			"Cannot retrieve status on a bare repository");
+
+	if ((error = git_buf_joinpath(&temp_path, workdir, path)) < GIT_SUCCESS)
+		return git__rethrow(error,
+			"Failed to determine status of file '%s'", path);
+
+	if (git_path_isdir(temp_path.ptr) == GIT_SUCCESS) {
+		git_buf_free(&temp_path);
+		return git__throw(GIT_EINVALIDPATH,
+			"Failed to determine status of file '%s'. "
+			"Given path leads to a folder, not a file", path);
+	}
 
 	e = status_entry_new(NULL, path);
-	if (e == NULL)
+	if (e == NULL) {
+		git_buf_free(&temp_path);
 		return GIT_ENOMEM;
+	}
 
 	/* Find file in Workdir */
-	if (git_futils_exists(temp_path) == GIT_SUCCESS) {
-		if ((error = status_entry_update_from_workdir(e, temp_path)) < GIT_SUCCESS)
-			goto exit;	/* The callee has already set the error message */
+	if (git_path_exists(temp_path.ptr) == GIT_SUCCESS) {
+		if ((error = status_entry_update_from_workdir(e, temp_path.ptr)) < GIT_SUCCESS)
+			goto cleanup;	/* The callee has already set the error message */
 	}
 
 	/* Find file in Index */
-	if ((error = git_repository_index(&index, repo)) < GIT_SUCCESS) {
-		error = git__rethrow(error, "Failed to determine status of file '%s'. Index can't be opened", path);
-		goto exit;
+	if ((error = git_repository_index__weakptr(&index, repo)) < GIT_SUCCESS) {
+		git__rethrow(error,
+			"Failed to determine status of file '%s'."
+			"Index can't be opened", path);
+		goto cleanup;
 	}
 
 	status_entry_update_from_index(e, index);
-	git_index_free(index);
 
 	if ((error = retrieve_head_tree(&tree, repo)) < GIT_SUCCESS) {
-		error = git__rethrow(error, "Failed to determine status of file '%s'", path);
-		goto exit;
+		git__rethrow(error,
+			"Failed to determine status of file '%s'", path);
+		goto cleanup;
 	}
 
 	/* If the repository is not empty, try and locate the file in HEAD */
 	if (tree != NULL) {
-		strcpy(temp_path, path);
+		if ((error = git_buf_sets(&temp_path, path)) < GIT_SUCCESS) {
+			git__rethrow(error,
+				"Failed to determine status of file '%s'", path);
+			goto cleanup;
+		}
 
-		error = recurse_tree_entry(tree, e, temp_path);
+		error = recurse_tree_entry(tree, e, temp_path.ptr);
 		if (error < GIT_SUCCESS) {
-			error = git__rethrow(error, "Failed to determine status of file '%s'. An error occured while processing the tree", path);
-			goto exit;
+			git__rethrow(error,
+				"Failed to determine status of file '%s'. "
+				"An error occured while processing the tree", path);
+			goto cleanup;
 		}
 	}
 
 	/* Determine status */
 	if ((error = status_entry_update_flags(e)) < GIT_SUCCESS) {
-		error = git__throw(error, "Nonexistent file");
-		goto exit;
+		git__throw(error, "Nonexistent file");
+		goto cleanup;
+	}
+
+	if (status_entry_is_ignorable(e)) {
+		git_ignores ignores;
+
+		if ((error = git_ignore__for_path(repo, path, &ignores)) == GIT_SUCCESS)
+			error = status_entry_update_ignore(e, &ignores, path);
+
+		git_ignore__free(&ignores);
+
+		if (error < GIT_SUCCESS)
+			goto cleanup;
 	}
 
 	*status_flags = e->status_flags;
 
-exit:
-	git_tree_close(tree);
-	free(e);
+cleanup:
+	git_buf_free(&temp_path);
+	git_tree_free(tree);
+	git__free(e);
 	return error;
 }
 
 /*
- * git_futils_direach is not supposed to return entries in an ordered manner.
- * alphasorted_futils_direach wraps git_futils_direach and invokes the callback
+ * git_path_direach is not supposed to return entries in an ordered manner.
+ * alphasorted_futils_direach wraps git_path_direach and invokes the callback
  * function by passing it alphabeticcally sorted paths parameters.
  *
  */
 
-struct alphasorted_dirent_info {
-	int is_dir;
-
-	char path[GIT_FLEX_ARRAY]; /* more */
-};
-
-static struct alphasorted_dirent_info *alphasorted_dirent_info_new(const char *path)
+static char *alphasorted_dirent_info_new(const git_buf *path)
 {
-	int is_dir;
-	struct alphasorted_dirent_info *di;
+	char *di = git__malloc(path->size + 2);
+	if (!di)
+		return di;
 
-	is_dir = git_futils_isdir(path) == GIT_SUCCESS ? 1 : 0;
+	git_buf_copy_cstr(di, path->size + 1, path);
 
-	di = git__malloc(sizeof(*di) + (is_dir ? GIT_PATH_MAX : strlen(path)) + 1);
-	if (di == NULL)
-		return NULL;
-
-	memset(di, 0x0, sizeof(*di));
-
-	strcpy(di->path, path);
-	di->is_dir = is_dir;
+	if (git_path_isdir(path->ptr) == GIT_SUCCESS) {
+		/*
+		 * Append a forward slash to the name to force folders
+		 * to be ordered in a similar way than in a tree
+		 *
+		 * The file "subdir" should appear before the file "subdir.txt"
+		 * The folder "subdir" should appear after the file "subdir.txt"
+		 */
+		di[path->size] = '/';
+		di[path->size + 1] = '\0';
+	}
 
 	return di;
 }
 
-static int alphasorted_dirent_info_cmp(const void *a, const void *b)
+static int alphasorted_dirent_cb(void *state, git_buf *full_path)
 {
-	struct alphasorted_dirent_info *stra = (struct alphasorted_dirent_info *)a;
-	struct alphasorted_dirent_info *strb = (struct alphasorted_dirent_info *)b;
-
-	return strcmp(stra->path, strb->path);
-}
-
-static int alphasorted_dirent_cb(void *state, char *full_path)
-{
-	struct alphasorted_dirent_info *entry;
+	char *entry;
 	git_vector *entry_names;
 
 	entry_names = (git_vector *)state;
@@ -626,7 +729,7 @@ static int alphasorted_dirent_cb(void *state, char *full_path)
 		return GIT_ENOMEM;
 
 	if (git_vector_insert(entry_names, entry) < GIT_SUCCESS) {
-		free(entry);
+		git__free(entry);
 		return GIT_ENOMEM;
 	}
 
@@ -634,34 +737,58 @@ static int alphasorted_dirent_cb(void *state, char *full_path)
 }
 
 static int alphasorted_futils_direach(
-	char *path,
-	size_t path_sz,
-	int (*fn)(void *, char *),
+	git_buf *path,
+	int (*fn)(void *, git_buf *),
 	void *arg)
 {
-	struct alphasorted_dirent_info *entry;
+	char *entry;
 	git_vector entry_names;
 	unsigned int idx;
 	int error = GIT_SUCCESS;
+	git_buf entry_path = GIT_BUF_INIT;
 
-	if (git_vector_init(&entry_names, 16, alphasorted_dirent_info_cmp) < GIT_SUCCESS)
+	if (git_vector_init(&entry_names, 16, git__strcmp_cb) < GIT_SUCCESS)
 		return GIT_ENOMEM;
 
-	error = git_futils_direach(path, path_sz, alphasorted_dirent_cb, &entry_names);
+	error = git_path_direach(path, alphasorted_dirent_cb, &entry_names);
 
 	git_vector_sort(&entry_names);
 
 	for (idx = 0; idx < entry_names.length; ++idx) {
-		entry = (struct alphasorted_dirent_info *)git_vector_get(&entry_names, idx);
+		entry = (char *)git_vector_get(&entry_names, idx);
+
+		/* We have to walk the entire vector even if there was an error,
+		 * in order to free up memory, but we stop making callbacks after
+		 * an error.
+		 */
+		if (error == GIT_SUCCESS)
+			error = git_buf_sets(&entry_path, entry);
 
 		if (error == GIT_SUCCESS) {
-			((struct status_st *)arg)->is_dir = entry->is_dir;
-			error = fn(arg, entry->path);
+			((struct status_st *)arg)->is_dir =
+				(entry[entry_path.size - 1] == '/');
+			error = fn(arg, &entry_path);
 		}
 
-		free(entry);
+		git__free(entry);
 	}
 
+	git_buf_free(&entry_path);
 	git_vector_free(&entry_names);
 	return error;
 }
+
+
+int git_status_should_ignore(git_repository *repo, const char *path, int *ignored)
+{
+	int error;
+	git_ignores ignores;
+
+	if ((error = git_ignore__for_path(repo, path, &ignores)) == GIT_SUCCESS)
+		error = git_ignore__lookup(&ignores, path, ignored);
+
+	git_ignore__free(&ignores);
+
+	return error;
+}
+

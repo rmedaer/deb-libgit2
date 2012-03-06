@@ -63,13 +63,18 @@ extern int remove_object_files(const char *odb_dir, object_data *d);
 
 extern int cmp_objects(git_rawobj *o, object_data *d);
 
+extern void locate_loose_object(const char *odb_dir, git_object *object, char **out, char **out_folder);
+
+extern int loose_object_mode(const char *odb_dir, git_object *object);
+extern int loose_object_dir_mode(const char *odb_dir, git_object *object);
+
 extern int remove_loose_object(const char *odb_dir, git_object *object);
 
 extern int cmp_files(const char *a, const char *b);
 extern int copy_file(const char *source, const char *dest);
 extern int rmdir_recurs(const char *directory_path);
 extern int copydir_recurs(const char *source_directory_path, const char *destination_directory_path);
-extern int remove_placeholders(char *directory_path, char *filename);
+extern int remove_placeholders(const char *directory_path, const char *filename);
 
 extern int open_temp_repo(git_repository **repo, const char *path);
 extern void close_temp_repo(git_repository *repo);

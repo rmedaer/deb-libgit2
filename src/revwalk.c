@@ -34,6 +34,7 @@ typedef struct commit_list {
 
 struct git_revwalk {
 	git_repository *repo;
+	git_odb *odb;
 
 	git_hashtable *commits;
 
@@ -68,7 +69,7 @@ static void commit_list_free(commit_list **list_p)
 	while (list) {
 		commit_list *temp = list;
 		list = temp->next;
-		free(temp);
+		git__free(temp);
 	}
 
 	*list_p = NULL;
@@ -81,7 +82,7 @@ static commit_object *commit_list_pop(commit_list **stack)
 
 	if (top) {
 		*stack = top->next;
-		free(top);
+		git__free(top);
 	}
 	return item;
 }
@@ -156,7 +157,7 @@ static commit_object *commit_lookup(git_revwalk *walk, const git_oid *oid)
 	git_oid_cpy(&commit->oid, oid);
 
 	if (git_hashtable_insert(walk->commits, &commit->oid, commit) < GIT_SUCCESS) {
-		free(commit);
+		git__free(commit);
 		return NULL;
 	}
 
@@ -225,16 +226,16 @@ static int commit_parse(git_revwalk *walk, commit_object *commit)
 	if (commit->parsed)
 		return GIT_SUCCESS;
 
-	if ((error = git_odb_read(&obj, walk->repo->db, &commit->oid)) < GIT_SUCCESS)
+	if ((error = git_odb_read(&obj, walk->odb, &commit->oid)) < GIT_SUCCESS)
 		return git__rethrow(error, "Failed to parse commit. Can't read object");
 
 	if (obj->raw.type != GIT_OBJ_COMMIT) {
-		git_odb_object_close(obj);
+		git_odb_object_free(obj);
 		return git__throw(GIT_EOBJTYPE, "Failed to parse commit. Object is no commit object");
 	}
 
 	error = commit_quick_parse(walk, commit, &obj->raw);
-	git_odb_object_close(obj);
+	git_odb_object_free(obj);
 	return error == GIT_SUCCESS ? GIT_SUCCESS : git__rethrow(error, "Failed to parse commit");
 }
 
@@ -429,6 +430,7 @@ static int prepare_walk(git_revwalk *walk)
 
 int git_revwalk_new(git_revwalk **revwalk_out, git_repository *repo)
 {
+	int error;
 	git_revwalk *walk;
 
 	walk = git__malloc(sizeof(git_revwalk));
@@ -442,7 +444,7 @@ int git_revwalk_new(git_revwalk **revwalk_out, git_repository *repo)
 			(git_hash_keyeq_ptr)git_oid_cmp);
 
 	if (walk->commits == NULL) {
-		free(walk);
+		git__free(walk);
 		return GIT_ENOMEM;
 	}
 
@@ -454,6 +456,12 @@ int git_revwalk_new(git_revwalk **revwalk_out, git_repository *repo)
 	walk->enqueue = &revwalk_enqueue_unsorted;
 
 	walk->repo = repo;
+
+	error = git_repository_odb(&walk->odb, repo);
+	if (error < GIT_SUCCESS) {
+		git_revwalk_free(walk);
+		return error;
+	}
 
 	*revwalk_out = walk;
 	return GIT_SUCCESS;
@@ -469,23 +477,24 @@ void git_revwalk_free(git_revwalk *walk)
 		return;
 
 	git_revwalk_reset(walk);
+	git_odb_free(walk->odb);
 
 	/* if the parent has more than PARENTS_PER_COMMIT parents,
 	 * we had to allocate a separate array for those parents.
 	 * make sure it's being free'd */
 	GIT_HASHTABLE_FOREACH(walk->commits, _unused, commit, {
 		if (commit->out_degree > PARENTS_PER_COMMIT)
-			free(commit->parents);
+			git__free(commit->parents);
 	});
 
 	git_hashtable_free(walk->commits);
 	git_pqueue_free(&walk->iterator_time);
 
 	for (i = 0; i < walk->memory_alloc.length; ++i)
-		free(git_vector_get(&walk->memory_alloc, i));
+		git__free(git_vector_get(&walk->memory_alloc, i));
 
 	git_vector_free(&walk->memory_alloc);
-	free(walk);
+	git__free(walk);
 }
 
 git_repository *git_revwalk_repository(git_revwalk *walk)

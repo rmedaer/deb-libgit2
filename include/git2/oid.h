@@ -100,7 +100,7 @@ GIT_EXTERN(void) git_oid_pathfmt(char *str, const git_oid *oid);
  *
  * @param oid the oid structure to format
  * @return the c-string; NULL if memory is exhausted. Caller must
- *			deallocate the string with free().
+ *			deallocate the string with git__free().
  */
 GIT_EXTERN(char *) git_oid_allocfmt(const git_oid *oid);
 
@@ -148,6 +148,16 @@ GIT_EXTERN(int) git_oid_cmp(const git_oid *a, const git_oid *b);
  * @return 0 in case of a match
  */
 GIT_EXTERN(int) git_oid_ncmp(const git_oid *a, const git_oid *b, unsigned int len);
+
+/**
+ * Check if an oid equals an hex formatted object id.
+ *
+ * @param a oid structure.
+ * @param str input hex string of an object id.
+ * @return GIT_ENOTOID if str is not a valid hex string,
+ * GIT_SUCCESS in case of a match, GIT_ERROR otherwise.
+ */
+GIT_EXTERN(int) git_oid_streq(const git_oid *a, const char *str);
 
 /**
  * OID Shortener object

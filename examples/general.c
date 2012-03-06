@@ -74,7 +74,7 @@ int main (int argc, char** argv)
   // repository.
   // [odb]: http://libgit2.github.com/libgit2/#HEAD/group/odb
   git_odb *odb;
-  odb = git_repository_database(repo);
+  git_repository_odb(&odb, repo);
 
   // #### Raw Object Reading
 
@@ -107,7 +107,7 @@ int main (int argc, char** argv)
 
   // For proper memory management, close the object when you are done with it or it will leak
   // memory.
-  git_odb_object_close(obj);
+  git_odb_object_free(obj);
 
   // #### Raw Object Writing
 
@@ -167,12 +167,12 @@ int main (int argc, char** argv)
     git_commit_parent(&parent, commit, p);
     git_oid_fmt(out, git_commit_id(parent));
     printf("Parent: %s\n", out);
-    git_commit_close(parent);
+    git_commit_free(parent);
   }
 
   // Don't forget to close the object to prevent memory leaks. You will have to do this for
   // all the objects you open and parse.
-  git_commit_close(commit);
+  git_commit_free(commit);
 
   // #### Writing Commits
   //
@@ -243,7 +243,7 @@ int main (int argc, char** argv)
   tmessage = git_tag_message(tag); // "tag message\n"
   printf("Tag Message: %s\n", tmessage);
 
-  git_commit_close(commit);
+  git_commit_free(commit);
 
   // #### Tree Parsing
   // [Tree parsing][tp] is a bit different than the other objects, in that we have a subtype which is the
@@ -276,7 +276,7 @@ int main (int argc, char** argv)
   git_tree_entry_2object(&objt, repo, entry); // blob
 
   // Remember to close the looked-up object once you are done using it
-  git_object_close(objt);
+  git_object_free(objt);
 
   // #### Blob Parsing
   //
@@ -340,7 +340,7 @@ int main (int argc, char** argv)
     cmsg  = git_commit_message(wcommit);
     cauth = git_commit_author(wcommit);
     printf("%s (%s)\n", cmsg, cauth->email);
-    git_commit_close(wcommit);
+    git_commit_free(wcommit);
   }
 
   // Like the other objects, be sure to free the revwalker when you're done to prevent memory leaks.
@@ -430,14 +430,14 @@ int main (int argc, char** argv)
   printf("\n*Config Listing*\n");
 
   const char *email;
-  int j;
+  int32_t j;
 
   git_config *cfg;
 
   // Open a config object so we can read global values from it.
   git_config_open_ondisk(&cfg, "~/.gitconfig");
 
-  git_config_get_int(cfg, "help.autocorrect", &j);
+  git_config_get_int32(cfg, "help.autocorrect", &j);
   printf("Autocorrect: %d\n", j);
 
   git_config_get_string(cfg, "user.email", &email);

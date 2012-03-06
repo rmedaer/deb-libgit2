@@ -7,9 +7,11 @@
 #ifndef INCLUDE_git_remote_h__
 #define INCLUDE_git_remote_h__
 
-#include "git2/common.h"
-#include "git2/repository.h"
-#include "git2/refspec.h"
+#include "common.h"
+#include "repository.h"
+#include "refspec.h"
+#include "net.h"
+
 /**
  * @file git2/remote.h
  * @brief Git remote management functions
@@ -28,16 +30,18 @@ GIT_BEGIN_DECL
  */
 
 /**
- * Create a new unnamed remote
+ * Create a remote in memory
  *
- * Useful when you don't want to store the remote
+ * Create a remote with the default refspecs in memory. You can use
+ * this when you have a URL instead of a remote's name.
  *
  * @param out pointer to the new remote object
  * @param repo the associtated repository
  * @param url the remote repository's URL
+ * @param name the remote's name
  * @return GIT_SUCCESS or an error code
  */
-int git_remote_new(git_remote **out, git_repository *repo, const char *url);
+GIT_EXTERN(int) git_remote_new(git_remote **out, git_repository *repo, const char *url, const char *name);
 
 /**
  * Get the information for a particular remote
@@ -47,7 +51,7 @@ int git_remote_new(git_remote **out, git_repository *repo, const char *url);
  * @param name the remote's name
  * @return GIT_SUCCESS or an error code
  */
-GIT_EXTERN(int) git_remote_get(struct git_remote **out, struct git_config *cfg, const char *name);
+GIT_EXTERN(int) git_remote_load(git_remote **out, git_repository *repo, const char *name);
 
 /**
  * Get the remote's name
@@ -55,7 +59,7 @@ GIT_EXTERN(int) git_remote_get(struct git_remote **out, struct git_config *cfg, 
  * @param remote the remote
  * @return a pointer to the name
  */
-GIT_EXTERN(const char *) git_remote_name(struct git_remote *remote);
+GIT_EXTERN(const char *) git_remote_name(git_remote *remote);
 
 /**
  * Get the remote's url
@@ -63,7 +67,7 @@ GIT_EXTERN(const char *) git_remote_name(struct git_remote *remote);
  * @param remote the remote
  * @return a pointer to the url
  */
-GIT_EXTERN(const char *) git_remote_url(struct git_remote *remote);
+GIT_EXTERN(const char *) git_remote_url(git_remote *remote);
 
 /**
  * Get the fetch refspec
@@ -71,7 +75,7 @@ GIT_EXTERN(const char *) git_remote_url(struct git_remote *remote);
  * @param remote the remote
  * @return a pointer to the fetch refspec or NULL if it doesn't exist
  */
-GIT_EXTERN(const git_refspec *) git_remote_fetchspec(struct git_remote *remote);
+GIT_EXTERN(const git_refspec *) git_remote_fetchspec(git_remote *remote);
 
 /**
  * Get the push refspec
@@ -80,7 +84,7 @@ GIT_EXTERN(const git_refspec *) git_remote_fetchspec(struct git_remote *remote);
  * @return a pointer to the push refspec or NULL if it doesn't exist
  */
 
-GIT_EXTERN(const git_refspec *) git_remote_pushspec(struct git_remote *remote);
+GIT_EXTERN(const git_refspec *) git_remote_pushspec(git_remote *remote);
 
 /**
  * Open a connection to a remote
@@ -93,34 +97,28 @@ GIT_EXTERN(const git_refspec *) git_remote_pushspec(struct git_remote *remote);
  * @param direction whether you want to receive or send data
  * @return GIT_SUCCESS or an error code
  */
-GIT_EXTERN(int) git_remote_connect(struct git_remote *remote, int direction);
+GIT_EXTERN(int) git_remote_connect(git_remote *remote, int direction);
 
 /**
  * Get a list of refs at the remote
  *
- * The remote (or more exactly its transport) must be connected.
+ * The remote (or more exactly its transport) must be connected. The
+ * memory belongs to the remote.
  *
  * @param refs where to store the refs
  * @param remote the remote
  * @return GIT_SUCCESS or an error code
  */
-GIT_EXTERN(int) git_remote_ls(git_remote *remote, git_headarray *refs);
-
-/**
- * Negotiate what data needs to be exchanged to synchroize the remtoe
- * and local references
- *
- * @param remote the remote you want to negotiate with
- */
-GIT_EXTERN(int) git_remote_negotiate(git_remote *remote);
+GIT_EXTERN(int) git_remote_ls(git_remote *remote, git_headlist_cb list_cb, void *payload);
 
 /**
  * Download the packfile
  *
- * The packfile is downloaded with a temporary filename, as it's final
- * name is not known yet. If there was no packfile needed (all the
- * objects were available locally), filename will be NULL and the
- * function will return success.
+ * Negotiate what objects should be downloaded and download the
+ * packfile with those objects. The packfile is downloaded with a
+ * temporary filename, as it's final name is not known yet. If there
+ * was no packfile needed (all the objects were available locally),
+ * filename will be NULL and the function will return success.
  *
  * @param remote the remote to download from
  * @param filename where to store the temproray filename
@@ -129,11 +127,31 @@ GIT_EXTERN(int) git_remote_negotiate(git_remote *remote);
 GIT_EXTERN(int) git_remote_download(char **filename, git_remote *remote);
 
 /**
+ * Check whether the remote is connected
+ *
+ * Check whether the remote's underlying transport is connected to the
+ * remote host.
+ *
+ * @return 1 if it's connected, 0 otherwise.
+ */
+GIT_EXTERN(int) git_remote_connected(git_remote *remote);
+
+/**
+ * Disconnect from the remote
+ *
+ * Close the connection to the remote and free the underlying
+ * transport.
+ *
+ * @param remote the remote to disconnect from
+ */
+GIT_EXTERN(void) git_remote_disconnect(git_remote *remote);
+
+/**
  * Free the memory associated with a remote
  *
  * @param remote the remote to free
  */
-GIT_EXTERN(void) git_remote_free(struct git_remote *remote);
+GIT_EXTERN(void) git_remote_free(git_remote *remote);
 
 /**
  * Update the tips to the new state
@@ -143,7 +161,15 @@ GIT_EXTERN(void) git_remote_free(struct git_remote *remote);
  *
  * @param remote the remote to update
  */
-GIT_EXTERN(int) git_remote_update_tips(struct git_remote *remote);
+GIT_EXTERN(int) git_remote_update_tips(git_remote *remote);
+
+/**
+ * Return whether a string is a valid remote URL
+ *
+ * @param tranport the url to check
+ * @param 1 if the url is valid, 0 otherwise
+ */
+GIT_EXTERN(int) git_remote_valid_url(const char *url);
 
 /** @} */
 GIT_END_DECL

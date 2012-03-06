@@ -7,7 +7,6 @@
 #ifndef INCLUDE_git_common_h__
 #define INCLUDE_git_common_h__
 
-#include "thread-utils.h"
 #include <time.h>
 #include <stdlib.h>
 
@@ -38,18 +37,6 @@
 # define GIT_EXTERN(type) extern type
 #endif
 
-/** Declare a public TLS symbol exported for application use. */
-#if __GNUC__ >= 4
-# define GIT_EXTERN_TLS(type) extern \
-					__attribute__((visibility("default"))) \
-					GIT_TLS \
-					type
-#elif defined(_MSC_VER)
-# define GIT_EXTERN_TLS(type) __declspec(dllexport) GIT_TLS type
-#else
-# define GIT_EXTERN_TLS(type) extern GIT_TLS type
-#endif
-
 /** Declare a function as always inlined. */
 #if defined(_MSC_VER)
 # define GIT_INLINE(type) static __inline type
@@ -64,7 +51,7 @@
 # define GIT_FORMAT_PRINTF(a,b) /* empty */
 #endif
 
-#if defined(_WIN32) && !defined(__CYGWIN__)
+#if (defined(_WIN32) || defined(_WIN64)) && !defined(__CYGWIN__)
 #define GIT_WIN32 1
 #endif
 

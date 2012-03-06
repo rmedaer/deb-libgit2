@@ -22,24 +22,29 @@ typedef struct {
 	int priority;
 } file_internal;
 
-void git_config_free(git_config *cfg)
+static void config_free(git_config *cfg)
 {
 	unsigned int i;
 	git_config_file *file;
 	file_internal *internal;
 
-	if (cfg == NULL)
-		return;
-
 	for(i = 0; i < cfg->files.length; ++i){
 		internal = git_vector_get(&cfg->files, i);
 		file = internal->file;
 		file->free(file);
-		free(internal);
+		git__free(internal);
 	}
 
 	git_vector_free(&cfg->files);
-	free(cfg);
+	git__free(cfg);
+}
+
+void git_config_free(git_config *cfg)
+{
+	if (cfg == NULL)
+		return;
+
+	GIT_REFCOUNT_DEC(cfg, config_free);
 }
 
 static int config_backend_cmp(const void *a, const void *b)
@@ -61,12 +66,12 @@ int git_config_new(git_config **out)
 	memset(cfg, 0x0, sizeof(git_config));
 
 	if (git_vector_init(&cfg->files, 3, config_backend_cmp) < 0) {
-		free(cfg);
+		git__free(cfg);
 		return GIT_ENOMEM;
 	}
 
 	*out = cfg;
-
+	GIT_REFCOUNT_INC(cfg);
 	return GIT_SUCCESS;
 }
 
@@ -115,7 +120,7 @@ int git_config_add_file(git_config *cfg, git_config_file *file, int priority)
 	assert(cfg && file);
 
 	if ((error = file->open(file)) < GIT_SUCCESS)
-		return git__rethrow(error, "Failed to open config file");
+		return git__throw(error, "Failed to open config file");
 
 	internal = git__malloc(sizeof(file_internal));
 	if (internal == NULL)
@@ -125,7 +130,7 @@ int git_config_add_file(git_config *cfg, git_config_file *file, int priority)
 	internal->priority = priority;
 
 	if (git_vector_insert(&cfg->files, internal) < 0) {
-		free(internal);
+		git__free(internal);
 		return GIT_ENOMEM;
 	}
 
@@ -157,7 +162,16 @@ int git_config_foreach(git_config *cfg, int (*fn)(const char *, const char *, vo
 
 int git_config_delete(git_config *cfg, const char *name)
 {
-	return git_config_set_string(cfg, name, NULL);
+	file_internal *internal;
+	git_config_file *file;
+
+	if (cfg->files.length == 0)
+		return git__throw(GIT_EINVALIDARGS, "Cannot delete variable; no files open in the `git_config` instance");
+
+	internal = git_vector_get(&cfg->files, 0);
+	file = internal->file;
+
+	return file->del(file, name);
 }
 
 /**************
@@ -323,81 +337,48 @@ int git_config_get_string(git_config *cfg, const char *name, const char **out)
 	return git__throw(error, "Config value '%s' not found", name);
 }
 
+int git_config_find_global_r(git_buf *path)
+{
+	return git_futils_find_global_file(path, GIT_CONFIG_FILENAME);
+}
+
 int git_config_find_global(char *global_config_path)
 {
-	const char *home;
+	git_buf path  = GIT_BUF_INIT;
+	int     error = git_config_find_global_r(&path);
 
-	home = getenv("HOME");
+	if (error == GIT_SUCCESS) {
+		if (path.size > GIT_PATH_MAX)
+			error = git__throw(GIT_ESHORTBUFFER, "Path is too long");
+		else
+			git_buf_copy_cstr(global_config_path, GIT_PATH_MAX, &path);
+	}
 
-#ifdef GIT_WIN32
-	if (home == NULL)
-		home = getenv("USERPROFILE");
-#endif
+	git_buf_free(&path);
 
-	if (home == NULL)
-		return git__throw(GIT_EOSERR, "Failed to open global config file. Cannot locate the user's home directory");
-
-	git_path_join(global_config_path, home, GIT_CONFIG_FILENAME);
-
-	if (git_futils_exists(global_config_path) < GIT_SUCCESS)
-		return git__throw(GIT_EOSERR, "Failed to open global config file. The file does not exist");
-
-	return GIT_SUCCESS;
+	return error;
 }
 
-
-
-#if GIT_WIN32
-static int win32_find_system(char *system_config_path)
+int git_config_find_system_r(git_buf *path)
 {
-	const wchar_t *query = L"%PROGRAMFILES%\\Git\\etc\\gitconfig";
-	wchar_t *apphome_utf16;
-	char *apphome_utf8;
-	DWORD size, ret;
-
-	size = ExpandEnvironmentStringsW(query, NULL, 0);
-	/* The function gave us the full size of the buffer in chars, including NUL */
-	apphome_utf16 = git__malloc(size * sizeof(wchar_t));
-	if (apphome_utf16 == NULL)
-		return GIT_ENOMEM;
-
-	ret = ExpandEnvironmentStringsW(query, apphome_utf16, size);
-	if (ret != size)
-		return git__throw(GIT_ERROR, "Failed to expand environment strings");
-
-	if (_waccess(apphome_utf16, F_OK) < 0) {
-		free(apphome_utf16);
-		return GIT_ENOTFOUND;
-	}
-
-	apphome_utf8 = conv_utf16_to_utf8(apphome_utf16);
-	free(apphome_utf16);
-
-	if (strlen(apphome_utf8) >= GIT_PATH_MAX) {
-		free(apphome_utf8);
-		return git__throw(GIT_ESHORTBUFFER, "Path is too long");
-	}
-
-	strcpy(system_config_path, apphome_utf8);
-	free(apphome_utf8);
-	return GIT_SUCCESS;
+	return git_futils_find_system_file(path, GIT_CONFIG_FILENAME_SYSTEM);
 }
-#endif
 
 int git_config_find_system(char *system_config_path)
 {
-	const char *etc = "/etc/gitconfig";
+	git_buf path  = GIT_BUF_INIT;
+	int     error = git_config_find_system_r(&path);
 
-	if (git_futils_exists(etc) == GIT_SUCCESS) {
-		memcpy(system_config_path, etc, strlen(etc) + 1);
-		return GIT_SUCCESS;
+	if (error == GIT_SUCCESS) {
+		if (path.size > GIT_PATH_MAX)
+			error = git__throw(GIT_ESHORTBUFFER, "Path is too long");
+		else
+			git_buf_copy_cstr(system_config_path, GIT_PATH_MAX, &path);
 	}
 
-#if GIT_WIN32
-	return win32_find_system(system_config_path);
-#else
-	return GIT_ENOTFOUND;
-#endif
+	git_buf_free(&path);
+
+	return error;
 }
 
 int git_config_open_global(git_config **out)

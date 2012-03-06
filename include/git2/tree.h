@@ -54,7 +54,7 @@ GIT_INLINE(int) git_tree_lookup_prefix(git_tree **tree, git_repository *repo, co
 /**
  * Close an open tree
  *
- * This is a wrapper around git_object_close()
+ * This is a wrapper around git_object_free()
  *
  * IMPORTANT:
  * It *is* necessary to call this method when you stop
@@ -63,9 +63,9 @@ GIT_INLINE(int) git_tree_lookup_prefix(git_tree **tree, git_repository *repo, co
  * @param tree the tree to close
  */
 
-GIT_INLINE(void) git_tree_close(git_tree *tree)
+GIT_INLINE(void) git_tree_free(git_tree *tree)
 {
-	git_object_close((git_object *) tree);
+	git_object_free((git_object *) tree);
 }
 
 
@@ -268,6 +268,86 @@ GIT_EXTERN(void) git_treebuilder_filter(git_treebuilder *bld, int (*filter)(cons
  */
 GIT_EXTERN(int) git_treebuilder_write(git_oid *oid, git_repository *repo, git_treebuilder *bld);
 
+/**
+ * Retrieve a subtree contained in a tree, given its
+ * relative path.
+ *
+ * The returned tree is owned by the repository and
+ * should be closed with the `git_object_free` method.
+ *
+ * @param subtree Pointer where to store the subtree
+ * @param root A previously loaded tree which will be the root of the relative path
+ * @param subtree_path Path to the contained subtree
+ * @return GIT_SUCCESS on success; GIT_ENOTFOUND if the path does not lead to a
+ * subtree, GIT_EINVALIDPATH or an error code
+ */
+GIT_EXTERN(int) git_tree_get_subtree(git_tree **subtree, git_tree *root, const char *subtree_path);
+
+/** Callback for the tree traversal method */
+typedef int (*git_treewalk_cb)(const char *root, git_tree_entry *entry, void *payload);
+
+/** Tree traversal modes */
+enum git_treewalk_mode {
+	GIT_TREEWALK_PRE = 0, /* Pre-order */
+	GIT_TREEWALK_POST = 1, /* Post-order */
+};
+
+/**
+ * Traverse the entries in a tree and its subtrees in
+ * post or pre order
+ *
+ * The entries will be traversed in the specified order,
+ * children subtrees will be automatically loaded as required,
+ * and the `callback` will be called once per entry with
+ * the current (relative) root for the entry and the entry
+ * data itself.
+ *
+ * If the callback returns a negative value, the passed entry
+ * will be skiped on the traversal.
+ *
+ * @param tree The tree to walk
+ * @param callback Function to call on each tree entry
+ * @param mode Traversal mode (pre or post-order)
+ * @param payload Opaque pointer to be passed on each callback
+ * @return GIT_SUCCESS or an error code
+ */
+GIT_EXTERN(int) git_tree_walk(git_tree *tree, git_treewalk_cb callback, int mode, void *payload);
+
 /** @} */
+
+typedef enum {
+	GIT_STATUS_ADDED = 1,
+	GIT_STATUS_DELETED = 2,
+	GIT_STATUS_MODIFIED = 3,
+} git_status_t;
+
+typedef struct {
+	unsigned int old_attr;
+	unsigned int new_attr;
+	git_oid old_oid;
+	git_oid new_oid;
+	git_status_t status;
+	const char *path;
+} git_tree_diff_data;
+
+typedef int (*git_tree_diff_cb)(const git_tree_diff_data *ptr, void *data);
+
+/**
+ * Diff two trees
+ *
+ * Compare two trees. For each difference in the trees, the callback
+ * will be called with a git_tree_diff_data filled with the relevant
+ * information.
+ *
+ * @param old the "old" tree
+ * @param newer the "newer" tree
+ * @param cb callback
+ * @param data data to give to the callback
+ * @return GIT_SUCCESS or an error code
+ */
+int git_tree_diff(git_tree *old, git_tree *newer, git_tree_diff_cb cb, void *data);
+
+int git_tree_diff_index_recursive(git_tree *tree, git_index *index, git_tree_diff_cb cb, void *data);
+
 GIT_END_DECL
 #endif
