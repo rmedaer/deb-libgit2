@@ -1,5 +1,5 @@
 Source: libgit2
-Section: devel
+Section: libs
 Priority: extra
 Maintainer: Russell Sim <russell.sim@gmail.com>
 Build-Depends: debhelper (>= 8.0.0), python-all (>= 2.4.0), cmake, libz-dev
