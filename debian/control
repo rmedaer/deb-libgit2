@@ -13,7 +13,12 @@ Package: libgit2-dev
 Architecture: any
 Section: libdevel
 Depends: ${misc:Depends},
-Description: headers for libgit2, an implementation of the Git DVCS
+Description: libgit2 is an implementation of the Git DVCS
+ libgit2 is a portable, pure C implementation of the Git
+ distributed version control system core methods provided as a
+ re-entrant link-able library with a solid API.
+ .
+ This package contains the development files for libgit2.
 
 Package: libgit2-0
 Section: libs
@@ -22,8 +27,7 @@ Depends: ${shlibs:Depends}, ${misc:Depends}
 Description: libgit2 is an implementation of the Git DVCS
  libgit2 is a portable, pure C implementation of the Git
  distributed version control system core methods provided as a
- re-entrant link-able library with a solid API, allowing you to write
- native speed custom Git applications in any language with bindings.
+ re-entrant link-able library with a solid API.
 
 Package: libgit2-dbg
 Section: debug
@@ -31,5 +35,12 @@ Priority: extra
 Architecture: any
 Depends: libgit2-0 (= ${binary:Version}),
          ${misc:Depends}
-Description: libgit2 debugging symbols
+Description: libgit2 library and debugging symbols.
+ libgit2 is a portable, pure C implementation of the Git
+ distributed version control system core methods provided as a
+ re-entrant link-able library with a solid API.
+ .
+ This package contains detached debugging symbols.
+ .
+ Most people will not need this package.
 
