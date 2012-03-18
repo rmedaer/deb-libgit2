@@ -3,7 +3,7 @@ Section: unknown
 Priority: extra
 Maintainer: Russell Sim <russell.sim@gmail.com>
 Build-Depends: debhelper (>= 8.0.0), python-all (>= 2.4.0), cmake, libz-dev
-Standards-Version: 3.9.2
+Standards-Version: 3.9.3
 Homepage: http://libgit2.github.com/
 #Vcs-Git: git://git.debian.org/collab-maint/libgit2.git
 #Vcs-Browser: http://git.debian.org/?p=collab-maint/libgit2.git;a=summary
