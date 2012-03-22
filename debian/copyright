@@ -4,7 +4,7 @@ Source: http://libgit2.github.com/
 
 Files: *
 Copyright: Copyright (C) 2009-2011 the libgit2 contributors
-License: GPL-2 with a special Linking Exception
+License: GPL-2 with linking exception
  libgit2 is Copyright (C) 2009-2011 the libgit2 contributors,
  unless otherwise stated. See the AUTHORS file for details.
  .
