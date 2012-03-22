@@ -11,3 +11,6 @@
 
 %:
 	dh $@ --dbg-package=libgit2-dbg
+
+override_dh_auto_configure:
+	dh_auto_configure -- -DBUILD_CLAR:BOOL=ON -DBUILD_TESTS:BOOL=ON
