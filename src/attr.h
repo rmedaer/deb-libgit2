@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2009-2011 the libgit2 contributors
+ * Copyright (C) 2009-2012 the libgit2 contributors
  *
  * This file is part of libgit2, distributed under the GNU GPL v2 with
  * a Linking Exception. For full terms see the included COPYING file.
@@ -19,6 +19,13 @@ extern int git_attr_cache__init(git_repository *repo);
 
 extern int git_attr_cache__insert_macro(
 	git_repository *repo, git_attr_rule *macro);
+
+extern int git_attr_cache__lookup_or_create_file(
+	git_repository *repo,
+	const char *key,
+	const char *filename,
+	int (*loader)(git_repository *, const char *, git_attr_file *),
+	git_attr_file **file_ptr);
 
 extern int git_attr_cache__push_file(
 	git_repository *repo,

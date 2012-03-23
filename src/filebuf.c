@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2009-2011 the libgit2 contributors
+ * Copyright (C) 2009-2012 the libgit2 contributors
  *
  * This file is part of libgit2, distributed under the GNU GPL v2 with
  * a Linking Exception. For full terms see the included COPYING file.
@@ -290,6 +290,8 @@ int git_filebuf_commit(git_filebuf *file, mode_t mode)
 		error = git__throw(GIT_EOSERR, "Failed to chmod locked file before committing");
 		goto cleanup;
 	}
+
+	p_unlink(file->path_original);
 
 	error = p_rename(file->path_lock, file->path_original);
 

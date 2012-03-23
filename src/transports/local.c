@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2009-2011 the libgit2 contributors
+ * Copyright (C) 2009-2012 the libgit2 contributors
  *
  * This file is part of libgit2, distributed under the GNU GPL v2 with
  * a Linking Exception. For full terms see the included COPYING file.
@@ -154,7 +154,7 @@ static int local_ls(git_transport *transport, git_headlist_cb list_cb, void *pay
  * Try to open the url as a git directory. The direction doesn't
  * matter in this case because we're calulating the heads ourselves.
  */
-static int local_connect(git_transport *transport, int GIT_UNUSED(direction))
+static int local_connect(git_transport *transport, int direction)
 {
 	git_repository *repo;
 	int error;
@@ -162,7 +162,7 @@ static int local_connect(git_transport *transport, int GIT_UNUSED(direction))
 	const char *path;
 	git_buf buf = GIT_BUF_INIT;
 
-	GIT_UNUSED_ARG(direction);
+	GIT_UNUSED(direction);
 
 	/* The repo layer doesn't want the prefix */
 	if (!git__prefixcmp(transport->url, "file://")) {
@@ -194,7 +194,7 @@ static int local_connect(git_transport *transport, int GIT_UNUSED(direction))
 	return GIT_SUCCESS;
 }
 
-static int local_close(git_transport *GIT_UNUSED(transport))
+static int local_close(git_transport *transport)
 {
 	transport_local *t = (transport_local *)transport;
 

@@ -1,12 +1,12 @@
 /*
- * Copyright (C) 2009-2011 the libgit2 contributors
+ * Copyright (C) 2009-2012 the libgit2 contributors
  *
  * This file is part of libgit2, distributed under the GNU GPL v2 with
  * a Linking Exception. For full terms see the included COPYING file.
  */
 
 #include "common.h"
-#include "git2/zlib.h"
+#include <zlib.h>
 #include "git2/repository.h"
 #include "git2/oid.h"
 #include "fileops.h"
@@ -159,9 +159,9 @@ static int pack_entry_find_prefix(struct git_pack_entry *e,
  *
  ***********************************************************/
 
-GIT_INLINE(void) pack_window_free_all(struct pack_backend *GIT_UNUSED(backend), struct git_pack_file *p)
+GIT_INLINE(void) pack_window_free_all(struct pack_backend *backend, struct git_pack_file *p)
 {
-	GIT_UNUSED_ARG(backend);
+	GIT_UNUSED(backend);
 	git_mwindow_free_all(&p->mwf);
 }
 

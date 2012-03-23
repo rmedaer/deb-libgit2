@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2009-2011 the libgit2 contributors
+ * Copyright (C) 2009-2012 the libgit2 contributors
  *
  * This file is part of libgit2, distributed under the GNU GPL v2 with
  * a Linking Exception. For full terms see the included COPYING file.
@@ -31,7 +31,7 @@ GIT_BEGIN_DECL
 #define GIT_STATUS_WT_MODIFIED		(1 << 4)
 #define GIT_STATUS_WT_DELETED		(1 << 5)
 
-#define GIT_STATUS_IGNORED			(1 << 6)
+#define GIT_STATUS_IGNORED		(1 << 6)
 
 /**
  * Gather file statuses and run a callback for each one.

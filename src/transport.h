@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2009-2011 the libgit2 contributors
+ * Copyright (C) 2009-2012 the libgit2 contributors
  *
  * This file is part of libgit2, distributed under the GNU GPL v2 with
  * a Linking Exception. For full terms see the included COPYING file.
@@ -102,6 +102,11 @@ int git_transport_local(struct git_transport **transport);
 int git_transport_git(struct git_transport **transport);
 int git_transport_http(struct git_transport **transport);
 int git_transport_dummy(struct git_transport **transport);
+
+/**
+  Returns true if the passed URL is valid (a URL with a Git supported scheme,
+  or pointing to an existing path)
+*/
 int git_transport_valid_url(const char *url);
 
 typedef struct git_transport git_transport;

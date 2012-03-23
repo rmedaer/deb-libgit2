@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2009-2011 the libgit2 contributors
+ * Copyright (C) 2009-2012 the libgit2 contributors
  *
  * This file is part of libgit2, distributed under the GNU GPL v2 with
  * a Linking Exception. For full terms see the included COPYING file.
@@ -313,8 +313,6 @@ enum git_treewalk_mode {
  */
 GIT_EXTERN(int) git_tree_walk(git_tree *tree, git_treewalk_cb callback, int mode, void *payload);
 
-/** @} */
-
 typedef enum {
 	GIT_STATUS_ADDED = 1,
 	GIT_STATUS_DELETED = 2,
@@ -348,6 +346,8 @@ typedef int (*git_tree_diff_cb)(const git_tree_diff_data *ptr, void *data);
 int git_tree_diff(git_tree *old, git_tree *newer, git_tree_diff_cb cb, void *data);
 
 int git_tree_diff_index_recursive(git_tree *tree, git_index *index, git_tree_diff_cb cb, void *data);
+
+/** @} */
 
 GIT_END_DECL
 #endif

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2009-2011 the libgit2 contributors
+ * Copyright (C) 2009-2012 the libgit2 contributors
  *
  * This file is part of libgit2, distributed under the GNU GPL v2 with
  * a Linking Exception. For full terms see the included COPYING file.
@@ -65,5 +65,7 @@ extern int p_rename(const char *from, const char *to);
 #else
 #	include "unix/posix.h"
 #endif
+
+#define p_readdir_r(d,e,r) readdir_r(d,e,r)
 
 #endif

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2009-2011 the libgit2 contributors
+ * Copyright (C) 2009-2012 the libgit2 contributors
  *
  * This file is part of libgit2, distributed under the GNU GPL v2 with
  * a Linking Exception. For full terms see the included COPYING file.
@@ -19,12 +19,12 @@
  */
 GIT_BEGIN_DECL
 
-#define GIT_ATTR_TRUE			git_attr__true
-#define GIT_ATTR_FALSE			git_attr__false
-#define GIT_ATTR_UNSPECIFIED	NULL
+#define GIT_ATTR_TRUE(attr)		((attr) == git_attr__true)
+#define GIT_ATTR_FALSE(attr)	((attr) == git_attr__false)
+#define GIT_ATTR_UNSPECIFIED(attr)	((attr) == NULL)
 
-GIT_EXTERN(const char *)git_attr__true;
-GIT_EXTERN(const char *)git_attr__false;
+GIT_EXTERN(const char *) git_attr__true;
+GIT_EXTERN(const char *) git_attr__false;
 
 
 /**
