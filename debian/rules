@@ -14,3 +14,6 @@
 
 override_dh_auto_configure:
 	dh_auto_configure -- -DBUILD_CLAR:BOOL=ON -DBUILD_TESTS:BOOL=ON
+
+override_dh_makeshlibs:
+	dh_makeshlibs -V
