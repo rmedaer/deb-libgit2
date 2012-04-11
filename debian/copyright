@@ -39,10 +39,10 @@ License: GPL-2 with linking exception
  	http://www.apache.org/licenses/LICENSE-2.0
 
 
-Files: tests-clay/clay
+Files: tests-clar/clar
 Copyright: Copyright (C) 2011 by Vicent Marti
 License: MIT
- The Clay framework is licensed under the MIT license:
+ The Clar framework is licensed under the MIT license:
  .
  Copyright (C) 2011 by Vicent Marti
  .
