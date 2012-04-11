@@ -21,7 +21,6 @@ Description: low-level Git library
  This package contains the development files for libgit2.
 
 Package: libgit2-0
-Section: libs
 Architecture: any
 Depends: ${shlibs:Depends}, ${misc:Depends}
 Description: low-level Git library
