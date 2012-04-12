@@ -1,4 +1,3 @@
-/usr/lib/libgit2.so
-/usr/include/git2.h
-/usr/include/git2
-/usr/lib/pkgconfig/libgit2.pc
+/usr/include
+/usr/lib/lib*.so
+/usr/lib/pkgconfig
