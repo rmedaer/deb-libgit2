@@ -12,7 +12,8 @@ Homepage: http://libgit2.github.com/
 Package: libgit2-dev
 Architecture: any
 Section: libdevel
-Depends: ${misc:Depends},
+Depends: libgit2-0 (= ${binary:Version}),
+         ${misc:Depends}
 Description: low-level Git library (development files)
  libgit2 is a portable, pure C implementation of the Git
  distributed version control system core methods provided as a
