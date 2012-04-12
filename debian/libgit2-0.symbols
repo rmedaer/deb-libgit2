@@ -1,0 +1,9 @@
+libgit2.so.0 libgit2-0 #MINVER#
+ (regex|optional)"^git__.*@Base$" 0.16.0
+ (regex)"^git_.*@Base$" 0.16.0
+ (regex|optional)"^p_.*@Base$" 0.16.0
+ (regex|optional)"^http_.*@Base$" 0.16.0
+ (regex|optional)"^gitno_.*@Base$" 0.16.0
+ (regex|optional)"^packfile_.*@Base$" 0.16.0
+ (optional)sha1_entry_pos@Base 0.16.0
+ (optional)get_delta_base@Base 0.16.0
