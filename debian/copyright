@@ -3,7 +3,7 @@ Upstream-Name: libgit2
 Source: http://libgit2.github.com/
 
 Files: *
-Copyright: Copyright (C) 2009-2011 the libgit2 contributors
+Copyright: Copyright (C) 2009-2012 the libgit2 contributors
 License: GPL-2 with linking exception
  libgit2 is Copyright (C) 2009-2011 the libgit2 contributors,
  unless otherwise stated. See the AUTHORS file for details.
@@ -114,6 +114,28 @@ License: Zlib
  .
  Jean-loup Gailly        Mark Adler
  jloup@gzip.org          madler@alumni.caltech.edu
+
+
+Files: deps/regex/*
+Copyright: Copyright (C) 1985,1989-93,1995-98,2000,2001,2002,2003,2005,2006,2008 Free Software Foundation, Inc.
+License: LGPL-2.1
+ Free Software Foundation, Inc.
+ This file is part of the GNU C Library.
+ .
+ The GNU C Library is free software; you can redistribute it and/or
+ modify it under the terms of the GNU Lesser General Public
+ License as published by the Free Software Foundation; either
+ version 2.1 of the License, or (at your option) any later version.
+ .
+ The GNU C Library is distributed in the hope that it will be useful,
+ but WITHOUT ANY WARRANTY; without even the implied warranty of
+ MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ Lesser General Public License for more details.
+ .
+ You should have received a copy of the GNU Lesser General Public
+ License along with the GNU C Library; if not, write to the Free
+ Software Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
+ 02110-1301 USA.
 
 
 Files: debian/*
