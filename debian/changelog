@@ -1,8 +1,10 @@
 libgit2 (0.17.0-1) unstable; urgency=low
 
   * New Upstream Release.
-  * Patch added that enables building as both static and dynamic
-    library.
+  * debian/patches/build_static.patch: Enables building as both
+    static and dynamic library.
+  * debian/rules: Added CMAKE_BUILD_TYPE=RelWithDebInfo to rules file.
+  * debian/compat: Updated to 9, adds support for hardening.
 
  -- Russell Sim <russell.sim@gmail.com>  Sun, 20 May 2012 21:34:12 +1000
 
