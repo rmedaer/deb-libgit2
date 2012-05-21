@@ -1,6 +1,8 @@
 libgit2 (0.17.0-1) UNRELEASED; urgency=low
 
   * New Upstream Release.
+  * Patch added that enables building as both static and dynamic
+    library.
 
  -- Russell Sim <russell.sim@gmail.com>  Sun, 20 May 2012 21:34:12 +1000
 
