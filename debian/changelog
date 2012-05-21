@@ -1,4 +1,4 @@
-libgit2 (0.17.0-1) unstable; urgency=low
+libgit2 (0.17.0-1) experimental; urgency=low
 
   * New Upstream Release.
   * debian/patches/build_static.patch: Enables building as both
@@ -8,7 +8,7 @@ libgit2 (0.17.0-1) unstable; urgency=low
 
  -- Russell Sim <russell.sim@gmail.com>  Sun, 20 May 2012 21:34:12 +1000
 
-libgit2 (0.16.0-1) unstable; urgency=low
+libgit2 (0.16.0-1) experimental; urgency=low
 
   * Initial release (Closes: #614517)
 
