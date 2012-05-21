@@ -1,4 +1,4 @@
-libgit2 (0.17.0-1) UNRELEASED; urgency=low
+libgit2 (0.17.0-1) unstable; urgency=low
 
   * New Upstream Release.
   * Patch added that enables building as both static and dynamic
