@@ -17,3 +17,6 @@ override_dh_auto_configure:
 
 override_dh_makeshlibs:
 	dh_makeshlibs -V 'libgit2-0 (>= 0.16.0)'
+
+override_dh_install:
+	dh_install -Xwindows.h -Xinttypes.h -Xstdint.h
