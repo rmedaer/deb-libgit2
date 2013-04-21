@@ -1,3 +1,17 @@
+libgit2 (0.18.0-1) UNRELEASED; urgency=low
+
+  [ Russell Sim ]
+  * Removed windows specific headers.
+
+  [ Carlos Martín Nieto ]
+  * Build-Depend on python-minimal instead of -all
+  * BUILD_TESTS isn't used in this project
+
+  [ Russell Sim ]
+  * New upstream release 0.18.0.
+
+ -- Russell Sim <russell.sim@gmail.com>  Sun, 21 Apr 2013 14:04:39 +1000
+
 libgit2 (0.17.0-1) experimental; urgency=low
 
   * New Upstream Release.

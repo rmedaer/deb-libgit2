@@ -10,13 +10,25 @@
 #export DH_VERBOSE=1
 
 %:
-	dh $@ --dbg-package=libgit2-dbg
+	dh $@ --buildsystem cmake --dbg-package=libgit2-dbg --builddirectory=build-debian-release 
+	dh $@ --buildsystem cmake --builddirectory=build-debian-devel
+
 
 override_dh_auto_configure:
-	dh_auto_configure -- -DBUILD_CLAR:BOOL=ON -DCMAKE_BUILD_TYPE=RelWithDebInfo
+	dh_auto_configure --builddirectory=build-debian-release -- -DBUILD_CLAR:BOOL=ON -DCMAKE_BUILD_TYPE:STRING=RelWithDebInfo
+	dh_auto_configure --builddirectory=build-debian-devel -- -DCMAKE_BUILD_TYPE:STRING=Release -DBUILD_SHARED_LIBS:BOOL=OFF -DBUILD_CLAR:BOOL=OFF
 
 override_dh_makeshlibs:
-	dh_makeshlibs -V 'libgit2-0 (>= 0.16.0)'
+	dh_makeshlibs -V 'libgit2-0 (>= 0.18.0)'
+
+override_dh_auto_build :
+	dh_auto_build --builddirectory=build-debian-release
+	dh_auto_build --builddirectory=build-debian-devel
+
+override_dh_auto_install :
+	dh_auto_install --builddirectory=build-debian-release
+	dh_auto_install --builddirectory=build-debian-devel
 
 override_dh_install:
-	dh_install -Xwindows.h -Xinttypes.h -Xstdint.h
+	find /tmp/buildd/libgit2-0.18.0/debian/
+	dh_install
