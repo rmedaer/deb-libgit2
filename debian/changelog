@@ -1,7 +1,7 @@
-libgit2 (0.18.0-1) UNRELEASED; urgency=low
+libgit2 (0.18.0-1) experimental; urgency=low
 
   [ Russell Sim ]
-  * Removed windows specific headers.
+  * Added examples to dev package.
 
   [ Carlos Martín Nieto ]
   * Build-Depend on python-minimal instead of -all
@@ -10,7 +10,7 @@ libgit2 (0.18.0-1) UNRELEASED; urgency=low
   [ Russell Sim ]
   * New upstream release 0.18.0.
 
- -- Russell Sim <russell.sim@gmail.com>  Sun, 21 Apr 2013 14:04:39 +1000
+ -- Russell Sim <russell.sim@gmail.com>  Tue, 30 Apr 2013 00:55:09 +1000
 
 libgit2 (0.17.0-1) experimental; urgency=low
 

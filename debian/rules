@@ -29,5 +29,5 @@ override_dh_auto_install :
 	dh_auto_install --builddirectory=build-debian-release
 	dh_auto_install --builddirectory=build-debian-devel
 
-override_dh_install:
-	dh_install
+override_dh_installexamples:
+	dh_installexamples --exclude .gitignore
