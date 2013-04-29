@@ -30,5 +30,4 @@ override_dh_auto_install :
 	dh_auto_install --builddirectory=build-debian-devel
 
 override_dh_install:
-	find /tmp/buildd/libgit2-0.18.0/debian/
 	dh_install
