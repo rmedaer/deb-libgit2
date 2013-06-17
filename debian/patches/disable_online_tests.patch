@@ -1,0 +1,14 @@
+Disable online tests.
+diff --git a/CMakeLists.txt b/CMakeLists.txt
+index 6bd25aa..f44190e 100644
+--- a/CMakeLists.txt
++++ b/CMakeLists.txt
+@@ -349,7 +349,7 @@ IF (BUILD_CLAR)
+ 	ENDIF ()
+ 
+ 	ENABLE_TESTING()
+-	ADD_TEST(libgit2_clar libgit2_clar -ionline)
++	ADD_TEST(libgit2_clar libgit2_clar -xonline)
+ ENDIF ()
+ 
+ IF (TAGS)
