@@ -1,3 +1,10 @@
+libgit2 (0.18.0-2) experimental; urgency=low
+
+  * Disable online tests.
+    Thanks to Felix Geyer for the heads up. (Closes: #712300)
+
+ -- Russell Sim <russell.sim@gmail.com>  Mon, 17 Jun 2013 23:11:15 +1000
+
 libgit2 (0.18.0-1) experimental; urgency=low
 
   [ Russell Sim ]
