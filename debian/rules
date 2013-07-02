@@ -15,8 +15,8 @@
 
 
 override_dh_auto_configure:
-	dh_auto_configure --builddirectory=build-debian-release -- -DBUILD_CLAR:BOOL=ON -DCMAKE_BUILD_TYPE:STRING=RelWithDebInfo
-	dh_auto_configure --builddirectory=build-debian-devel -- -DCMAKE_BUILD_TYPE:STRING=Release -DBUILD_SHARED_LIBS:BOOL=OFF -DBUILD_CLAR:BOOL=OFF
+	dh_auto_configure --builddirectory=build-debian-release -- -DTHREADSAFE:BOOL=ON -DBUILD_CLAR:BOOL=ON -DCMAKE_BUILD_TYPE:STRING=RelWithDebInfo
+	dh_auto_configure --builddirectory=build-debian-devel -- -DCMAKE_BUILD_TYPE:STRING=Release -DBUILD_SHARED_LIBS:BOOL=OFF -DTHREADSAFE:BOOL=ON -DBUILD_CLAR:BOOL=OFF
 
 override_dh_makeshlibs:
 	dh_makeshlibs -V 'libgit2-0 (>= 0.18.0)'
