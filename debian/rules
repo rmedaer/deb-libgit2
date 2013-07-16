@@ -4,10 +4,6 @@
 # Uncomment this to turn on verbose mode.
 #export DH_VERBOSE=1
 
-%:
-	dh $@ --buildsystem cmake --dbg-package=libgit2-dbg --builddirectory=build-debian-release 
-	dh $@ --buildsystem cmake --builddirectory=build-debian-devel
-
 
 override_dh_auto_configure:
 	dh_auto_configure --builddirectory=build-debian-release -- -DTHREADSAFE:BOOL=ON -DBUILD_CLAR:BOOL=ON -DCMAKE_BUILD_TYPE:STRING=RelWithDebInfo
@@ -26,3 +22,7 @@ override_dh_auto_install :
 
 override_dh_installexamples:
 	dh_installexamples --exclude .gitignore
+
+%:
+	dh $@ --buildsystem cmake --dbg-package=libgit2-dbg --builddirectory=build-debian-release 
+	dh $@ --buildsystem cmake --builddirectory=build-debian-devel

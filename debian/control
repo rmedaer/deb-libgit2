@@ -4,10 +4,10 @@ Priority: extra
 Maintainer: Russell Sim <russell.sim@gmail.com>
 Build-Depends: debhelper (>= 9.20120417), python-minimal (>= 2.4.0),
                cmake, libz-dev, libssl-dev, ca-certificates
-Standards-Version: 3.9.3
+Standards-Version: 3.9.4
 Homepage: http://libgit2.github.com/
-#Vcs-Git: git://git.debian.org/collab-maint/libgit2.git
-#Vcs-Browser: http://git.debian.org/?p=collab-maint/libgit2.git;a=summary
+#Vcs-Git: git://anonscm.debian.org/users/arrsim-guest/libgit2.git
+#Vcs-Browser: http://anonscm.debian.org/gitweb/?p=users/arrsim-guest/libgit2.git;a=summary
 
 
 Package: libgit2-dev
