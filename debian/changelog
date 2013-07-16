@@ -1,3 +1,12 @@
+libgit2 (0.19.0-2) experimental; urgency=low
+
+  * Added correct dependencies to development package. (Closes: #715173)
+  * Standards upgrade to version 3.9.4.
+  * Multi-arch support.
+  * Manually specified symbols instead of relying on regex.
+
+ -- Russell Sim <russell.sim@gmail.com>  Mon, 22 Jul 2013 22:27:56 +1000
+
 libgit2 (0.19.0-1) experimental; urgency=low
 
   * Enable threading. (Closes: #700181)
