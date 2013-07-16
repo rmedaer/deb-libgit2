@@ -13,6 +13,7 @@ Homepage: http://libgit2.github.com/
 Package: libgit2-dev
 Architecture: any
 Section: libdevel
+Multi-Arch: same
 Depends: libgit2-0 (= ${binary:Version}), libz-dev, libssl-dev,
          ${shlibs:Depends}, ${misc:Depends}
 Description: low-level Git library (development files)
@@ -24,6 +25,8 @@ Description: low-level Git library (development files)
 
 Package: libgit2-0
 Architecture: any
+Multi-Arch: same
+Pre-Depends: ${misc:Pre-Depends}
 Depends: ${shlibs:Depends}, ${misc:Depends}
 Description: low-level Git library
  libgit2 is a portable, pure C implementation of the Git
@@ -33,6 +36,7 @@ Description: low-level Git library
 Package: libgit2-dbg
 Section: debug
 Architecture: any
+Multi-Arch: same
 Depends: libgit2-0 (= ${binary:Version}),
          ${misc:Depends}
 Description: libgit2 library and debugging symbols
