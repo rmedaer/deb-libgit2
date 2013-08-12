@@ -6,8 +6,8 @@ Build-Depends: debhelper (>= 9.20120417), python-minimal (>= 2.4.0),
                cmake, libz-dev, libssl-dev, ca-certificates
 Standards-Version: 3.9.4
 Homepage: http://libgit2.github.com/
-#Vcs-Git: git://anonscm.debian.org/users/arrsim-guest/libgit2.git
-#Vcs-Browser: http://anonscm.debian.org/gitweb/?p=users/arrsim-guest/libgit2.git;a=summary
+Vcs-Git: git://anonscm.debian.org/users/arrsim-guest/libgit2.git
+Vcs-Browser: http://anonscm.debian.org/gitweb/?p=users/arrsim-guest/libgit2.git;a=summary
 
 
 Package: libgit2-dev
