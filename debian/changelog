@@ -5,7 +5,7 @@ libgit2 (0.19.0-2) experimental; urgency=low
   * Multi-arch support.
   * Manually specified symbols instead of relying on regex.
 
- -- Russell Sim <russell.sim@gmail.com>  Mon, 22 Jul 2013 22:27:56 +1000
+ -- Russell Sim <russell.sim@gmail.com>  Wed, 20 Aug 2013 22:33:20 +1000
 
 libgit2 (0.19.0-1) experimental; urgency=low
 
