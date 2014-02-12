@@ -1,3 +1,9 @@
+libgit2 (0.20.0-1) UNRELEASED; urgency=medium
+
+  * New upstream release 0.20.0.
+
+ -- Russell Sim <russell.sim@gmail.com>  Thu, 13 Feb 2014 09:17:02 +1100
+
 libgit2 (0.19.0-2) experimental; urgency=low
 
   * Added correct dependencies to development package. (Closes: #715173)
