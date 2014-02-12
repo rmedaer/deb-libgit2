@@ -1,6 +1,9 @@
 libgit2 (0.20.0-1) UNRELEASED; urgency=medium
 
   * New upstream release 0.20.0.
+  * debian/patches/disable_online_tests.patch: Renamed to
+    disable_tests.patch.
+  * debian/patches/disable_tests.patch: Disabled blame test.
 
  -- Russell Sim <russell.sim@gmail.com>  Thu, 13 Feb 2014 09:17:02 +1100
 

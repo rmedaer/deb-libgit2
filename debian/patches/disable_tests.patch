@@ -1,4 +1,10 @@
-Disable online tests.
+Disable incompatible tests
+
+online - disable online tests.
+
+blame::simple::trivial_libgit2 - requires the libgit2 directory to be
+a repository
+
 diff --git a/CMakeLists.txt b/CMakeLists.txt
 index 6bd25aa..f44190e 100644
 --- a/CMakeLists.txt
@@ -8,7 +14,7 @@ index 6bd25aa..f44190e 100644
  
  	ENABLE_TESTING()
 -	ADD_TEST(libgit2_clar libgit2_clar -ionline)
-+	ADD_TEST(libgit2_clar libgit2_clar -xonline)
++	ADD_TEST(libgit2_clar libgit2_clar -xonline -xblame::simple::trivial_libgit2)
  ENDIF ()
  
  IF (TAGS)
