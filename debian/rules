@@ -26,7 +26,7 @@ override_dh_auto_configure:
 
 
 override_dh_makeshlibs:
-	dh_makeshlibs -V 'libgit2-0 (>= 0.19.0)'
+	dh_makeshlibs -V
 
 override_dh_auto_build :
 	dh_auto_build --builddirectory=build-debian-release
@@ -43,5 +43,5 @@ override_dh_installexamples:
 	dh_installexamples --exclude .gitignore
 
 %:
-	dh $@ --parallel --buildsystem cmake --dbg-package=libgit2-dbg --builddirectory=build-debian-release 
+	dh $@ --parallel --buildsystem cmake --dbg-package=libgit2-dbg --builddirectory=build-debian-release
 	dh $@ --parallel --buildsystem cmake --builddirectory=build-debian-devel
