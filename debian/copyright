@@ -12,7 +12,7 @@ License: GPL-2 with linking exception
  is concerned is _this_ particular version of the license (ie v2, not
  v2.2 or v3.x or whatever), unless explicitly otherwise stated.
  .
-			LINKING EXCEPTION
+            LINKING EXCEPTION
  .
  In addition to the permissions in the GNU General Public License,
  the authors give you unlimited permission to link the compiled
@@ -25,18 +25,19 @@ License: GPL-2 with linking exception
  .
  On Debian systems, the complete text of the GNU General
  Public License version 2 can be found in "/usr/share/common-licenses/GPL-2".
- . 
+ .
  ----------------------------------------------------------------------
- . 
+ .
  The priority queue implementation is based on code licensed under the
  Apache 2.0 license:
  .
- 	Copyright 2010 Volkan Yazıcı <volkan.yazici@gmail.com>
- 	Copyright 2006-2010 The Apache Software Foundation
+    Copyright 2010 Volkan Yazıcı <volkan.yazici@gmail.com>
+    Copyright 2006-2010 The Apache Software Foundation
  .
  The full text of the Apache 2.0 license is available at:
  .
- 	http://www.apache.org/licenses/LICENSE-2.0
+    http://www.apache.org/licenses/LICENSE-2.0
+
 
 
 Files: tests-clar/clar
@@ -90,9 +91,9 @@ License: MIT
  AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
  LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
  FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS
- IN THE SOFTWARE. 
+ IN THE SOFTWARE.
 
- 
+
 Files: deps/zlib/*
 Copyright: Copyright (C) 1995-2010 Jean-loup Gailly and Mark Adler
 License: Zlib
