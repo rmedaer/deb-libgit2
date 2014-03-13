@@ -1,4 +1,4 @@
-libgit2 (0.20.0-1) UNRELEASED; urgency=medium
+libgit2 (0.20.0-1) experimental; urgency=medium
 
   * New upstream release 0.20.0.
   * debian/patches/disable_online_tests.patch: Renamed to
@@ -8,7 +8,7 @@ libgit2 (0.20.0-1) UNRELEASED; urgency=medium
   * Bumped standards version to 3.9.5 (no change necessary).
   * debian/copyright: Added new licenses: MIT, BSD and PHP
 
- -- Russell Sim <russell.sim@gmail.com>  Thu, 13 Feb 2014 09:17:02 +1100
+ -- Russell Sim <russell.sim@gmail.com>  Thu, 13 Mar 2014 20:35:39 +1100
 
 libgit2 (0.19.0-2) experimental; urgency=low
 
