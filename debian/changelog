@@ -6,6 +6,7 @@ libgit2 (0.20.0-1) UNRELEASED; urgency=medium
   * debian/patches/disable_tests.patch: Disabled blame test.
   * debian/rules: Use automatic dh_makeshlib version dependency.
   * Bumped standards version to 3.9.5 (no change necessary).
+  * debian/copyright: Added new licenses: MIT, BSD and PHP
 
  -- Russell Sim <russell.sim@gmail.com>  Thu, 13 Feb 2014 09:17:02 +1100
 
