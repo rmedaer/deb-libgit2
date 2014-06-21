@@ -1,4 +1,4 @@
-libgit2.so.21 libgit2-0 #MINVER#
+libgit2.so.21 libgit2-21 #MINVER#
  git_attr_add_macro@Base 0.17.0
  git_attr_cache_flush@Base 0.17.0
  git_attr_foreach@Base 0.17.0
