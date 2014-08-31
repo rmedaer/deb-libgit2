@@ -1,6 +1,8 @@
 libgit2 (0.21.0-1) UNRELEASED; urgency=medium
 
   * New upstream release 0.21.0.
+  * debian/copyright: Added new licenses: ICS, CC0.
+  * Library name now matches so name version.
 
  -- Russell Sim <russell.sim@gmail.com>  Sat, 21 Jun 2014 11:19:23 +1000
 
