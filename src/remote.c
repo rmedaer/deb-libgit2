@@ -691,6 +691,11 @@ int git_remote_ls(const git_remote_head ***out, size_t *size, git_remote *remote
 {
 	assert(remote);
 
+	if (!remote->transport) {
+		giterr_set(GITERR_NET, "No transport bound to this remote");
+		return -1;
+	}
+
 	return remote->transport->ls(out, size, remote->transport);
 }
 
@@ -1052,15 +1057,19 @@ static int update_tips_for_spec(
 		if (autotag && !git_odb_exists(odb, &head->oid))
 			continue;
 
-		if (git_vector_insert(&update_heads, head) < 0)
+		if (!autotag && git_vector_insert(&update_heads, head) < 0)
 			goto on_error;
 
 		error = git_reference_name_to_id(&old, remote->repo, refname.ptr);
 		if (error < 0 && error != GIT_ENOTFOUND)
 			goto on_error;
 
-		if (error == GIT_ENOTFOUND)
+		if (error == GIT_ENOTFOUND) {
 			memset(&old, 0, GIT_OID_RAWSZ);
+
+			if (autotag && git_vector_insert(&update_heads, head) < 0)
+				goto on_error;
+		}
 
 		if (!git_oid__cmp(&old, &head->oid))
 			continue;
@@ -1931,6 +1940,8 @@ int git_remote_default_branch(git_buf *out, git_remote *remote)
 	const git_oid *head_id;
 	size_t heads_len, i;
 	int error;
+
+	assert(out);
 
 	if ((error = git_remote_ls(&heads, &heads_len, remote)) < 0)
 		return error;

@@ -767,12 +767,17 @@ static int config_readonly_open(git_config_backend *cfg, git_config_level_t leve
 {
 	diskfile_readonly_backend *b = (diskfile_readonly_backend *) cfg;
 	diskfile_backend *src = b->snapshot_from;
+	diskfile_header *src_header = &src->header;
 	refcounted_strmap *src_map;
+	int error;
+
+	if (!src_header->readonly && (error = config_refresh(&src_header->parent)) < 0)
+		return error;
 
 	/* We're just copying data, don't care about the level */
 	GIT_UNUSED(level);
 
-	src_map = refcounted_strmap_take(&src->header);
+	src_map = refcounted_strmap_take(src_header);
 	b->header.values = src_map;
 
 	return 0;
@@ -1163,7 +1168,7 @@ static int strip_comments(char *line, int in_quotes)
 	}
 
 	/* skip any space at the end */
-	if (ptr > line && git__isspace(ptr[-1])) {
+	while (ptr > line && git__isspace(ptr[-1])) {
 		ptr--;
 	}
 	ptr[0] = '\0';
@@ -1649,7 +1654,7 @@ static int is_multiline_var(const char *str)
 	}
 
 	/* An odd number means last backslash wasn't escaped, so it's multiline */
-	return (end > str) && (count & 1);
+	return count & 1;
 }
 
 static int parse_multiline_variable(struct reader *reader, git_buf *value, int in_quotes)
