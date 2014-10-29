@@ -22,7 +22,7 @@ License: MIT
 
 Files: deps/http-parser/*
 Copyright: Igor Sysoev, Joyent, Inc. and other Node contributors
-License: MIT with NGNIX extension
+License: MIT+NGINX
 
 Files: src/path.c src/fnmatch.h
 Copyright: 2008, The Android Open Source Project
@@ -307,7 +307,7 @@ License: MIT
  THE SOFTWARE.
 
 
-License: MIT with NGNIX exception
+License: MIT+NGINX
  http_parser.c is based on src/http/ngx_http_parse.c from NGINX copyright
  Igor Sysoev and licensed under the MIT license.
  .

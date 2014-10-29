@@ -3,6 +3,8 @@ libgit2 (0.21.2-1) UNRELEASED; urgency=medium
   * New upstream release 0.21.2.
   * debian/control: Added libssh2-1-dev requirement. (Closes: #761042)
   * debian/control: Added libhttp-parser-dev requirement.
+  * debian/copyright: Fixed MIT NGINX license format.
+  * Bumped standards version to 3.9.6 (no change necessary).
 
  -- Russell Sim <russell.sim@gmail.com>  Tue, 28 Oct 2014 20:34:58 +1100
 
