@@ -15,7 +15,8 @@ Package: libgit2-dev
 Architecture: any
 Section: libdevel
 Multi-Arch: same
-Depends: libgit2-21 (= ${binary:Version}), libz-dev, libssl-dev,
+Depends: libgit2-21 (= ${binary:Version}), libz-dev,
+         libssl-dev, libssh2-1-dev, libhttp-parser-dev,
          ${shlibs:Depends}, ${misc:Depends}
 Description: low-level Git library (development files)
  libgit2 is a portable, pure C implementation of the Git

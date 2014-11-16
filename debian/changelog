@@ -1,3 +1,9 @@
+libgit2 (0.21.2-2) unstable; urgency=medium
+
+  * debian/control: Added missing dependencies. (Closes: #768482)
+
+ -- Russell Sim <russell.sim@gmail.com>  Sun, 16 Nov 2014 10:33:23 +0100
+
 libgit2 (0.21.2-1) unstable; urgency=medium
 
   * New upstream release 0.21.2.
