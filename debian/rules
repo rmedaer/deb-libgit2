@@ -9,6 +9,7 @@
 #export DH_VERBOSE=1
 
 DEB_HOST_MULTIARCH ?= $(shell dpkg-architecture -qDEB_HOST_MULTIARCH)
+TEST_TMPDIR := $(CURDIR)/tmp-test
 
 override_dh_auto_configure:
 	dh_auto_configure --builddirectory=build-debian-release -- \
@@ -28,13 +29,17 @@ override_dh_auto_configure:
 override_dh_makeshlibs:
 	dh_makeshlibs -V
 
-override_dh_auto_build :
+override_dh_auto_build:
 	dh_auto_build --builddirectory=build-debian-release
 	dh_auto_build --builddirectory=build-debian-devel
 
-override_dh_auto_install :
+override_dh_auto_install:
 	dh_auto_install --builddirectory=build-debian-release
 	dh_auto_install --builddirectory=build-debian-devel
+
+override_dh_auto_test:
+	test -d $(TEST_TMPDIR) || mkdir $(TEST_TMPDIR)
+	TMPDIR=$(TEST_TMPDIR) dh_auto_test --builddirectory=build-debian-release
 
 override_dh_strip:
 	dh_strip --dbg-package=libgit2-dbg
