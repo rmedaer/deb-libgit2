@@ -1,3 +1,9 @@
+libgit2 (0.21.1-2) jessie; urgency=medium
+
+  * Fix buildd errors. (Closes: #761539)
+
+ -- Russell Sim <russell.sim@gmail.com>  Sun, 04 Jan 2015 13:13:57 +1100
+
 libgit2 (0.21.1-1) unstable; urgency=medium
 
   * New upstream release 0.21.1.
