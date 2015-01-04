@@ -38,8 +38,10 @@ override_dh_auto_install:
 	dh_auto_install --builddirectory=build-debian-devel
 
 override_dh_auto_test:
-	test -d $(TEST_TMPDIR) || mkdir $(TEST_TMPDIR)
-	TMPDIR=$(TEST_TMPDIR) dh_auto_test --builddirectory=build-debian-release
+	mkdir -p build-debian-release/tmp
+	TMPDIR=$(PWD)/build-debian-release/tmp dh_auto_test --builddirectory=build-debian-release
+	mkdir -p build-debian-devel/tmp
+	TMPDIR=$(PWD)/build-debian-devel/tmp dh_auto_test --builddirectory=build-debian-devel
 
 override_dh_strip:
 	dh_strip --dbg-package=libgit2-dbg
