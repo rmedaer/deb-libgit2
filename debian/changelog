@@ -1,7 +1,14 @@
+libgit2 (0.21.3-1.1) unstable; urgency=medium
+
+  * Non-maintainer upload.
+  * Use CURDIR instead of PWD to fix the previous upload (Closes: #761539).
+
+ -- Ivo De Decker <ivodd@debian.org>  Thu, 08 Jan 2015 23:04:40 +0100
+
 libgit2 (0.21.3-1) unstable; urgency=medium
 
   * New upstream release 0.21.3 (CVE-2014-9390) (Closes: #774048).
-  * debian/rules: Run tests in a local tmpdir.
+  * debian/rules: Run tests in a local tmpdir to fix FTBFS (Closes: #761539).
 
  -- Russell Sim <russell.sim@gmail.com>  Sun, 28 Dec 2014 18:52:18 +1100
 
