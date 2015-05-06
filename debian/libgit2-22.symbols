@@ -1,4 +1,9 @@
-libgit2.so.21 libgit2-21 #MINVER#
+libgit2.so.22 libgit2-22 #MINVER#
+ git_annotated_commit_free@Base 0.22.0
+ git_annotated_commit_from_fetchhead@Base 0.22.0
+ git_annotated_commit_from_ref@Base 0.22.0
+ git_annotated_commit_id@Base 0.22.0
+ git_annotated_commit_lookup@Base 0.22.0
  git_attr_add_macro@Base 0.17.0
  git_attr_cache_flush@Base 0.17.0
  git_attr_foreach@Base 0.17.0
@@ -27,7 +32,6 @@ libgit2.so.21 libgit2-21 #MINVER#
  git_blob_rawsize@Base 0.17.0
  git_branch_create@Base 0.17.0
  git_branch_delete@Base 0.17.0
-#MISSING: 0.20.0# git_branch_foreach@Base 0.18.0
  git_branch_is_head@Base 0.18.0
  git_branch_iterator_free@Base 0.20.0
  git_branch_iterator_new@Base 0.20.0
@@ -39,27 +43,27 @@ libgit2.so.21 libgit2-21 #MINVER#
  git_branch_set_upstream@Base 0.18.0
  git_branch_upstream@Base 0.18.0
  git_branch_upstream_name@Base 0.18.0
+ git_branch_upstream_remote@Base 0.22.0
+ git_buf_contains_nul@Base 0.22.0
  git_buf_free@Base 0.20.0
  git_buf_grow@Base 0.20.0
+ git_buf_is_binary@Base 0.22.0
  git_buf_set@Base 0.20.0
  git_checkout_head@Base 0.18.0
  git_checkout_index@Base 0.18.0
  git_checkout_init_options@Base 0.21.0
  git_checkout_tree@Base 0.18.0
- git_cherry_pick@Base 0.21.0
- git_cherry_pick_commit@Base 0.21.0
- git_cherry_pick_init_options@Base 0.21.0
+ git_cherrypick@Base 0.22.0
+ git_cherrypick_commit@Base 0.22.0
+ git_cherrypick_init_options@Base 0.22.0
  git_clone@Base 0.18.0
  git_clone_init_options@Base 0.21.0
- git_clone_into@Base 0.20.0
- git_clone_local_into@Base 0.21.0
  git_commit_amend@Base 0.21.0
  git_commit_author@Base 0.17.0
  git_commit_committer@Base 0.17.0
  git_commit_create@Base 0.17.0
  git_commit_create_from_callback@Base 0.21.0
  git_commit_create_from_ids@Base 0.21.0
-#MISSING: 0.21.0# git_commit_create_from_oids@Base 0.19.0
  git_commit_create_v@Base 0.17.0
  git_commit_free@Base 0.19.0
  git_commit_id@Base 0.17.0
@@ -95,7 +99,6 @@ libgit2.so.21 libgit2-21 #MINVER#
  git_config_get_int32@Base 0.17.0
  git_config_get_int64@Base 0.17.0
  git_config_get_mapped@Base 0.17.0
-#MISSING: 0.20.0# git_config_get_multivar@Base 0.17.0
  git_config_get_multivar_foreach@Base 0.20.0
  git_config_get_string@Base 0.17.0
  git_config_init_backend@Base 0.21.0
@@ -113,7 +116,6 @@ libgit2.so.21 libgit2-21 #MINVER#
  git_config_parse_bool@Base 0.18.0
  git_config_parse_int32@Base 0.18.0
  git_config_parse_int64@Base 0.18.0
- git_config_refresh@Base 0.18.0
  git_config_set_bool@Base 0.17.0
  git_config_set_int32@Base 0.17.0
  git_config_set_int64@Base 0.17.0
@@ -126,8 +128,15 @@ libgit2.so.21 libgit2-21 #MINVER#
  git_cred_ssh_interactive_new@Base 0.21.0
  git_cred_ssh_key_from_agent@Base 0.21.0
  git_cred_ssh_key_new@Base 0.20.0
+ git_cred_username_new@Base 0.22.0
  git_cred_userpass@Base 0.18.0
  git_cred_userpass_plaintext_new@Base 0.18.0
+ git_describe_commit@Base 0.22.0
+ git_describe_format@Base 0.22.0
+ git_describe_init_format_options@Base 0.22.0
+ git_describe_init_options@Base 0.22.0
+ git_describe_result_free@Base 0.22.0
+ git_describe_workdir@Base 0.22.0
  git_diff_blob_to_buffer@Base 0.18.0
  git_diff_blobs@Base 0.17.0
  git_diff_buffers@Base 0.21.0
@@ -139,34 +148,17 @@ libgit2.so.21 libgit2-21 #MINVER#
  git_diff_format_email_init_options@Base 0.21.0
  git_diff_free@Base 0.20.0
  git_diff_get_delta@Base 0.20.0
-#MISSING: 0.20.0# git_diff_get_patch@Base 0.18.0
  git_diff_get_perfdata@Base 0.21.0
  git_diff_get_stats@Base 0.21.0
  git_diff_index_to_workdir@Base 0.18.0
  git_diff_init_options@Base 0.21.0
  git_diff_is_sorted_icase@Base 0.20.0
-#MISSING: 0.20.0# git_diff_list_free@Base 0.17.0
  git_diff_merge@Base 0.17.0
  git_diff_num_deltas@Base 0.18.0
  git_diff_num_deltas_of_type@Base 0.18.0
-#MISSING: 0.21.0# git_diff_options_init@Base 0.20.0
-#MISSING: 0.20.0# git_diff_patch_delta@Base 0.18.0
-#MISSING: 0.20.0# git_diff_patch_free@Base 0.18.0
-#MISSING: 0.20.0# git_diff_patch_from_blob_and_buffer@Base 0.19.0
-#MISSING: 0.20.0# git_diff_patch_from_blobs@Base 0.19.0
-#MISSING: 0.20.0# git_diff_patch_get_hunk@Base 0.18.0
-#MISSING: 0.20.0# git_diff_patch_get_line_in_hunk@Base 0.18.0
-#MISSING: 0.20.0# git_diff_patch_line_stats@Base 0.18.0
-#MISSING: 0.20.0# git_diff_patch_num_hunks@Base 0.18.0
-#MISSING: 0.20.0# git_diff_patch_num_lines_in_hunk@Base 0.18.0
-#MISSING: 0.20.0# git_diff_patch_print@Base 0.18.0
-#MISSING: 0.20.0# git_diff_patch_to_str@Base 0.18.0
  git_diff_print@Base 0.20.0
  git_diff_print_callback__to_buf@Base 0.21.0
  git_diff_print_callback__to_file_handle@Base 0.21.0
-#MISSING: 0.20.0# git_diff_print_compact@Base 0.17.0
-#MISSING: 0.20.0# git_diff_print_patch@Base 0.17.0
-#MISSING: 0.20.0# git_diff_print_raw@Base 0.19.0
  git_diff_stats_deletions@Base 0.21.0
  git_diff_stats_files_changed@Base 0.21.0
  git_diff_stats_free@Base 0.21.0
@@ -196,6 +188,10 @@ libgit2.so.21 libgit2-21 #MINVER#
  git_filter_unregister@Base 0.20.0
  git_graph_ahead_behind@Base 0.18.0
  git_graph_descendant_of@Base 0.21.0
+ git_hashsig_compare@Base 0.22.0
+ git_hashsig_create@Base 0.22.0
+ git_hashsig_create_fromfile@Base 0.22.0
+ git_hashsig_free@Base 0.22.0
  git_ignore_add_rule@Base 0.18.0
  git_ignore_clear_internal_rules@Base 0.18.0
  git_ignore_path_is_ignored@Base 0.18.0
@@ -249,39 +245,29 @@ libgit2.so.21 libgit2-21 #MINVER#
  git_indexer_free@Base 0.20.0
  git_indexer_hash@Base 0.20.0
  git_indexer_new@Base 0.20.0
-#MISSING: 0.20.0# git_indexer_stream_add@Base 0.17.0
-#MISSING: 0.20.0# git_indexer_stream_finalize@Base 0.17.0
-#MISSING: 0.20.0# git_indexer_stream_free@Base 0.17.0
-#MISSING: 0.20.0# git_indexer_stream_hash@Base 0.17.0
-#MISSING: 0.20.0# git_indexer_stream_new@Base 0.17.0
-#MISSING: 0.21.0# git_libgit2_capabilities@Base 0.18.0
  git_libgit2_features@Base 0.21.0
+ git_libgit2_init@Base 0.22.0
  git_libgit2_opts@Base 0.18.0
+ git_libgit2_shutdown@Base 0.22.0
  git_libgit2_version@Base 0.17.0
  git_merge@Base 0.20.0
  git_merge_analysis@Base 0.21.0
  git_merge_base@Base 0.17.0
  git_merge_base_many@Base 0.18.0
  git_merge_base_octopus@Base 0.21.0
+ git_merge_bases@Base 0.22.0
+ git_merge_bases_many@Base 0.22.0
  git_merge_commits@Base 0.21.0
  git_merge_file@Base 0.21.0
  git_merge_file_from_index@Base 0.21.0
  git_merge_file_init_input@Base 0.21.0
  git_merge_file_init_options@Base 0.21.0
  git_merge_file_result_free@Base 0.21.0
- git_merge_head_free@Base 0.19.0
- git_merge_head_from_fetchhead@Base 0.19.0
- git_merge_head_from_id@Base 0.21.0
-#MISSING: 0.21.0# git_merge_head_from_oid@Base 0.19.0
- git_merge_head_from_ref@Base 0.19.0
- git_merge_head_id@Base 0.21.0
  git_merge_init_options@Base 0.21.0
-#MISSING: 0.21.0# git_merge_result_fastforward_oid@Base 0.20.0
-#MISSING: 0.21.0# git_merge_result_free@Base 0.20.0
-#MISSING: 0.21.0# git_merge_result_is_fastforward@Base 0.20.0
-#MISSING: 0.21.0# git_merge_result_is_uptodate@Base 0.20.0
  git_merge_trees@Base 0.19.0
  git_message_prettify@Base 0.18.0
+ git_note_author@Base 0.22.0
+ git_note_committer@Base 0.22.0
  git_note_create@Base 0.17.0
  git_note_default_ref@Base 0.17.0
  git_note_foreach@Base 0.17.0
@@ -291,7 +277,6 @@ libgit2.so.21 libgit2-21 #MINVER#
  git_note_iterator_new@Base 0.18.0
  git_note_message@Base 0.17.0
  git_note_next@Base 0.18.0
-#MISSING: 0.21.0# git_note_oid@Base 0.17.0
  git_note_read@Base 0.17.0
  git_note_remove@Base 0.17.0
  git_object__size@Base 0.17.0
@@ -344,7 +329,6 @@ libgit2.so.21 libgit2-21 #MINVER#
  git_odb_stream_write@Base 0.20.0
  git_odb_write@Base 0.17.0
  git_odb_write_pack@Base 0.18.0
- git_oid_allocfmt@Base 0.17.0
  git_oid_cmp@Base 0.19.0
  git_oid_cpy@Base 0.17.0
  git_oid_equal@Base 0.21.0
@@ -363,6 +347,9 @@ libgit2.so.21 libgit2-21 #MINVER#
  git_oid_strcmp@Base 0.19.0
  git_oid_streq@Base 0.17.0
  git_oid_tostr@Base 0.17.0
+ git_oid_tostr_s@Base 0.22.0
+ git_oidarray_free@Base 0.22.0
+ git_openssl_set_locking@Base 0.22.0
  git_packbuilder_foreach@Base 0.18.0
  git_packbuilder_free@Base 0.18.0
  git_packbuilder_hash@Base 0.20.0
@@ -390,7 +377,6 @@ libgit2.so.21 libgit2-21 #MINVER#
  git_patch_print@Base 0.20.0
  git_patch_size@Base 0.20.0
  git_patch_to_buf@Base 0.21.0
-#MISSING: 0.21.0# git_patch_to_str@Base 0.20.0
  git_pathspec_free@Base 0.20.0
  git_pathspec_match_diff@Base 0.20.0
  git_pathspec_match_index@Base 0.20.0
@@ -404,16 +390,18 @@ libgit2.so.21 libgit2-21 #MINVER#
  git_pathspec_match_workdir@Base 0.20.0
  git_pathspec_matches_path@Base 0.20.0
  git_pathspec_new@Base 0.20.0
- git_push_add_refspec@Base 0.18.0
- git_push_finish@Base 0.18.0
- git_push_free@Base 0.18.0
  git_push_init_options@Base 0.21.0
- git_push_new@Base 0.18.0
- git_push_set_callbacks@Base 0.20.0
- git_push_set_options@Base 0.18.0
- git_push_status_foreach@Base 0.18.0
- git_push_unpack_ok@Base 0.18.0
- git_push_update_tips@Base 0.18.0
+ git_rebase_abort@Base 0.22.0
+ git_rebase_commit@Base 0.22.0
+ git_rebase_finish@Base 0.22.0
+ git_rebase_free@Base 0.22.0
+ git_rebase_init@Base 0.22.0
+ git_rebase_init_options@Base 0.22.0
+ git_rebase_next@Base 0.22.0
+ git_rebase_open@Base 0.22.0
+ git_rebase_operation_byindex@Base 0.22.0
+ git_rebase_operation_current@Base 0.22.0
+ git_rebase_operation_entrycount@Base 0.22.0
  git_refdb_backend_fs@Base 0.18.0
  git_refdb_compress@Base 0.18.0
  git_refdb_free@Base 0.18.0
@@ -464,7 +452,6 @@ libgit2.so.21 libgit2-21 #MINVER#
  git_reference_target_peel@Base 0.19.0
  git_reference_type@Base 0.17.0
  git_reflog_append@Base 0.18.0
-#MISSING: 0.21.0# git_reflog_append_to@Base 0.20.0
  git_reflog_delete@Base 0.17.0
  git_reflog_drop@Base 0.18.0
  git_reflog_entry_byindex@Base 0.17.0
@@ -489,13 +476,11 @@ libgit2.so.21 libgit2-21 #MINVER#
  git_remote_add_fetch@Base 0.19.0
  git_remote_add_push@Base 0.19.0
  git_remote_autotag@Base 0.18.0
- git_remote_check_cert@Base 0.18.0
  git_remote_clear_refspecs@Base 0.19.0
  git_remote_connect@Base 0.17.0
  git_remote_connected@Base 0.17.0
  git_remote_create@Base 0.18.0
  git_remote_create_anonymous@Base 0.21.0
-#MISSING: 0.21.0# git_remote_create_inmemory@Base 0.18.0
  git_remote_create_with_fetchspec@Base 0.20.0
  git_remote_default_branch@Base 0.21.0
  git_remote_delete@Base 0.21.0
@@ -511,18 +496,19 @@ libgit2.so.21 libgit2-21 #MINVER#
  git_remote_init_callbacks@Base 0.21.0
  git_remote_is_valid_name@Base 0.18.0
  git_remote_list@Base 0.17.0
- git_remote_load@Base 0.17.0
+ git_remote_lookup@Base 0.22.0
  git_remote_ls@Base 0.17.0
  git_remote_name@Base 0.17.0
  git_remote_owner@Base 0.20.0
+ git_remote_prune@Base 0.22.0
+ git_remote_prune_refs@Base 0.22.0
+ git_remote_push@Base 0.22.0
  git_remote_pushurl@Base 0.18.0
  git_remote_refspec_count@Base 0.19.0
-#MISSING: 0.20.0# git_remote_remove_refspec@Base 0.19.0
  git_remote_rename@Base 0.18.0
  git_remote_save@Base 0.17.0
  git_remote_set_autotag@Base 0.18.0
  git_remote_set_callbacks@Base 0.18.0
-#MISSING: 0.20.0# git_remote_set_cred_acquire_cb@Base 0.18.0
  git_remote_set_fetch_refspecs@Base 0.20.0
  git_remote_set_push_refspecs@Base 0.20.0
  git_remote_set_pushurl@Base 0.18.0
@@ -531,11 +517,10 @@ libgit2.so.21 libgit2-21 #MINVER#
  git_remote_set_url@Base 0.18.0
  git_remote_stats@Base 0.18.0
  git_remote_stop@Base 0.18.0
- git_remote_supported_url@Base 0.17.0
  git_remote_update_fetchhead@Base 0.18.0
  git_remote_update_tips@Base 0.17.0
+ git_remote_upload@Base 0.22.0
  git_remote_url@Base 0.17.0
- git_remote_valid_url@Base 0.17.0
  git_repository__cleanup@Base 0.19.0
  git_repository_config@Base 0.17.0
  git_repository_config_snapshot@Base 0.21.0
@@ -547,7 +532,6 @@ libgit2.so.21 libgit2-21 #MINVER#
  git_repository_hashfile@Base 0.18.0
  git_repository_head@Base 0.17.0
  git_repository_head_detached@Base 0.17.0
-#MISSING: 0.20.0# git_repository_head_orphan@Base 0.17.0
  git_repository_head_unborn@Base 0.20.0
  git_repository_index@Base 0.17.0
  git_repository_init@Base 0.17.0
@@ -556,7 +540,6 @@ libgit2.so.21 libgit2-21 #MINVER#
  git_repository_is_bare@Base 0.17.0
  git_repository_is_empty@Base 0.17.0
  git_repository_is_shallow@Base 0.19.0
-#MISSING: 0.21.0# git_repository_merge_cleanup@Base 0.18.0
  git_repository_mergehead_foreach@Base 0.18.0
  git_repository_message@Base 0.18.0
  git_repository_message_remove@Base 0.18.0
@@ -568,6 +551,7 @@ libgit2.so.21 libgit2-21 #MINVER#
  git_repository_path@Base 0.17.0
  git_repository_refdb@Base 0.18.0
  git_repository_reinit_filesystem@Base 0.20.0
+ git_repository_set_bare@Base 0.22.0
  git_repository_set_config@Base 0.17.0
  git_repository_set_head@Base 0.18.0
  git_repository_set_head_detached@Base 0.18.0
@@ -583,6 +567,7 @@ libgit2.so.21 libgit2-21 #MINVER#
  git_reset@Base 0.18.0
  git_reset_default@Base 0.18.0
  git_revert@Base 0.21.0
+ git_revert_commit@Base 0.22.0
  git_revert_init_options@Base 0.21.0
  git_revparse@Base 0.18.0
  git_revparse_ext@Base 0.19.0
@@ -646,6 +631,7 @@ libgit2.so.21 libgit2-21 #MINVER#
  git_submodule_path@Base 0.18.0
  git_submodule_reload@Base 0.18.0
  git_submodule_reload_all@Base 0.18.0
+ git_submodule_repo_init@Base 0.22.0
  git_submodule_resolve_url@Base 0.21.0
  git_submodule_save@Base 0.18.0
  git_submodule_set_fetch_recurse_submodules@Base 0.18.0
@@ -655,6 +641,8 @@ libgit2.so.21 libgit2-21 #MINVER#
  git_submodule_status@Base 0.18.0
  git_submodule_sync@Base 0.18.0
  git_submodule_update@Base 0.18.0
+ git_submodule_update_init_options@Base 0.22.0
+ git_submodule_update_strategy@Base 0.22.0
  git_submodule_url@Base 0.18.0
  git_submodule_wd_id@Base 0.18.0
  git_tag_annotation_create@Base 0.19.0
@@ -677,20 +665,17 @@ libgit2.so.21 libgit2-21 #MINVER#
  git_tag_target@Base 0.17.0
  git_tag_target_id@Base 0.18.0
  git_tag_target_type@Base 0.18.0
- git_threads_init@Base 0.17.0
- git_threads_shutdown@Base 0.17.0
  git_trace_set@Base 0.18.0
- git_transport_dummy@Base 0.18.0
  git_transport_init@Base 0.21.0
  git_transport_local@Base 0.18.0
  git_transport_new@Base 0.18.0
  git_transport_register@Base 0.20.0
  git_transport_smart@Base 0.18.0
+ git_transport_ssh_with_paths@Base 0.22.0
  git_transport_unregister@Base 0.20.0
  git_tree_entry_byid@Base 0.21.0
  git_tree_entry_byindex@Base 0.17.0
  git_tree_entry_byname@Base 0.17.0
-#MISSING: 0.21.0# git_tree_entry_byoid@Base 0.18.0
  git_tree_entry_bypath@Base 0.18.0
  git_tree_entry_cmp@Base 0.18.0
  git_tree_entry_dup@Base 0.18.0
@@ -709,12 +694,12 @@ libgit2.so.21 libgit2-21 #MINVER#
  git_tree_owner@Base 0.18.0
  git_tree_walk@Base 0.17.0
  git_treebuilder_clear@Base 0.17.0
- git_treebuilder_create@Base 0.17.0
  git_treebuilder_entrycount@Base 0.18.0
  git_treebuilder_filter@Base 0.17.0
  git_treebuilder_free@Base 0.17.0
  git_treebuilder_get@Base 0.17.0
  git_treebuilder_insert@Base 0.17.0
+ git_treebuilder_new@Base 0.22.0
  git_treebuilder_remove@Base 0.17.0
  git_treebuilder_write@Base 0.17.0
  giterr_clear@Base 0.17.0
