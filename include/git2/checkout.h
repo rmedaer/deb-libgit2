@@ -104,6 +104,11 @@ GIT_BEGIN_DECL
  *   overwritten.  Normally, files that are ignored in the working directory
  *   are not considered "precious" and may be overwritten if the checkout
  *   target contains that file.
+ *
+ * - GIT_CHECKOUT_DONT_REMOVE_EXISTING prevents checkout from removing
+ *   files or folders that fold to the same name on case insensitive
+ *   filesystems.  This can cause files to retain their existing names
+ *   and write through existing symbolic links.
  */
 typedef enum {
 	GIT_CHECKOUT_NONE = 0, /**< default is a dry run, no actual updates */
@@ -157,6 +162,9 @@ typedef enum {
 
 	/** Include common ancestor data in diff3 format files for conflicts */
 	GIT_CHECKOUT_CONFLICT_STYLE_DIFF3 = (1u << 21),
+
+	/** Don't overwrite existing files or folders */
+	GIT_CHECKOUT_DONT_REMOVE_EXISTING = (1u << 22),
 
 	/**
 	 * THE FOLLOWING OPTIONS ARE NOT YET IMPLEMENTED
@@ -233,18 +241,18 @@ typedef void (*git_checkout_progress_cb)(
 typedef struct git_checkout_options {
 	unsigned int version;
 
-	unsigned int checkout_strategy; /** default will be a dry run */
+	unsigned int checkout_strategy; /**< default will be a dry run */
 
-	int disable_filters;    /** don't apply filters like CRLF conversion */
-	unsigned int dir_mode;  /** default is 0755 */
-	unsigned int file_mode; /** default is 0644 or 0755 as dictated by blob */
-	int file_open_flags;    /** default is O_CREAT | O_TRUNC | O_WRONLY */
+	int disable_filters;    /**< don't apply filters like CRLF conversion */
+	unsigned int dir_mode;  /**< default is 0755 */
+	unsigned int file_mode; /**< default is 0644 or 0755 as dictated by blob */
+	int file_open_flags;    /**< default is O_CREAT | O_TRUNC | O_WRONLY */
 
-	unsigned int notify_flags; /** see `git_checkout_notify_t` above */
+	unsigned int notify_flags; /**< see `git_checkout_notify_t` above */
 	git_checkout_notify_cb notify_cb;
 	void *notify_payload;
 
-	/* Optional callback to notify the consumer of checkout progress. */
+	/** Optional callback to notify the consumer of checkout progress. */
 	git_checkout_progress_cb progress_cb;
 	void *progress_payload;
 
@@ -254,13 +262,13 @@ typedef struct git_checkout_options {
 	 */
 	git_strarray paths;
 
-	git_tree *baseline; /** expected content of workdir, defaults to HEAD */
+	git_tree *baseline; /**< expected content of workdir, defaults to HEAD */
 
-	const char *target_directory; /** alternative checkout path to workdir */
+	const char *target_directory; /**< alternative checkout path to workdir */
 
-	const char *ancestor_label; /** the name of the common ancestor side of conflicts */
-	const char *our_label; /** the name of the "our" side of conflicts */
-	const char *their_label; /** the name of the "their" side of conflicts */
+	const char *ancestor_label; /**< the name of the common ancestor side of conflicts */
+	const char *our_label; /**< the name of the "our" side of conflicts */
+	const char *their_label; /**< the name of the "their" side of conflicts */
 } git_checkout_options;
 
 #define GIT_CHECKOUT_OPTIONS_VERSION 1

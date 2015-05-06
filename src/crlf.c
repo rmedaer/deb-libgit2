@@ -286,7 +286,8 @@ static int crlf_check(
 		if (error < 0)
 			return error;
 
-		if (ca.auto_crlf == GIT_AUTO_CRLF_FALSE)
+		if (ca.crlf_action == GIT_CRLF_GUESS &&
+			ca.auto_crlf == GIT_AUTO_CRLF_FALSE)
 			return GIT_PASSTHROUGH;
 
 		if (ca.auto_crlf == GIT_AUTO_CRLF_INPUT &&
@@ -344,6 +345,8 @@ static void crlf_cleanup(
 git_filter *git_crlf_filter_new(void)
 {
 	struct crlf_filter *f = git__calloc(1, sizeof(struct crlf_filter));
+	if (f == NULL)
+		return NULL;
 
 	f->f.version = GIT_FILTER_VERSION;
 	f->f.attributes = "crlf eol text";

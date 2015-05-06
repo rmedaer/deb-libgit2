@@ -3,6 +3,7 @@
 
 #include "clar.h"
 #include <git2.h>
+#include <posix.h>
 #include "common.h"
 
 /**
@@ -51,7 +52,7 @@ GIT_INLINE(void) clar__assert_in_range(
 {
 	if (lo > val || hi < val) {
 		char buf[128];
-		snprintf(buf, sizeof(buf), "%d not in [%d,%d]", val, lo, hi);
+		p_snprintf(buf, sizeof(buf), "%d not in [%d,%d]", val, lo, hi);
 		clar__fail(file, line, err, buf, should_abort);
 	}
 }
@@ -77,6 +78,24 @@ void clar__assert_equal_file(
 	const char *path,
 	const char *file,
 	int line);
+
+GIT_INLINE(void) clar__assert_equal_oid(
+	const char *file, int line, const char *desc,
+	const git_oid *one, const git_oid *two)
+{
+	if (git_oid_cmp(one, two)) {
+		char err[] = "\"........................................\" != \"........................................\"";
+
+		git_oid_fmt(&err[1], one);
+		git_oid_fmt(&err[47], two);
+
+		clar__fail(file, line, desc, err, 1);
+	}
+}
+
+#define cl_assert_equal_oid(one, two) \
+	clar__assert_equal_oid(__FILE__, __LINE__, \
+		"OID mismatch: " #one " != " #two, (one), (two))
 
 /*
  * Some utility macros for building long strings
@@ -140,5 +159,9 @@ void cl_fake_home(void);
 void cl_fake_home_cleanup(void *);
 
 void cl_sandbox_set_search_path_defaults(void);
+
+#ifdef GIT_WIN32
+bool cl_sandbox_supports_8dot3(void);
+#endif
 
 #endif

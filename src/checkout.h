@@ -12,6 +12,13 @@
 
 #define GIT_CHECKOUT__NOTIFY_CONFLICT_TREE (1u << 12)
 
+/** Internal structure; this is exposed in future versions. */
+typedef struct {
+	size_t mkdir_calls;
+	size_t stat_calls;
+	size_t chmod_calls;
+} git_checkout_perfdata;
+
 /**
  * Update the working directory to match the target iterator.  The
  * expected baseline value can be passed in via the checkout options
@@ -19,6 +26,7 @@
  */
 extern int git_checkout_iterator(
 	git_iterator *target,
+	git_index *index,
 	const git_checkout_options *opts);
 
 #endif

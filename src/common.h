@@ -33,6 +33,7 @@
 # include <direct.h>
 # include <winsock2.h>
 # include <windows.h>
+# include <ws2tcpip.h>
 # include "win32/msvc-compat.h"
 # include "win32/mingw-compat.h"
 # include "win32/error.h"
@@ -68,7 +69,7 @@
 #define GITERR_CHECK_ALLOC(ptr) if (ptr == NULL) { return -1; }
 
 /**
- * Check a return value and propogate result if non-zero.
+ * Check a return value and propagate result if non-zero.
  */
 #define GITERR_CHECK_ERROR(code) \
 	do { int _err = (code); if (_err) return _err; } while (0)

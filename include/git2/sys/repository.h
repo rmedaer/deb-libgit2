@@ -7,6 +7,9 @@
 #ifndef INCLUDE_sys_git_repository_h__
 #define INCLUDE_sys_git_repository_h__
 
+#include "git2/common.h"
+#include "git2/types.h"
+
 /**
  * @file git2/sys/repository.h
  * @brief Git repository custom implementation routines
@@ -53,7 +56,7 @@ GIT_EXTERN(void) git_repository__cleanup(git_repository *repo);
  *
  * @param repo A repository object
  * @param recurse_submodules Should submodules be updated recursively
- * @returrn 0 on success, < 0 on error
+ * @return 0 on success, < 0 on error
  */
 GIT_EXTERN(int) git_repository_reinit_filesystem(
 	git_repository *repo,
@@ -118,6 +121,19 @@ GIT_EXTERN(void) git_repository_set_refdb(git_repository *repo, git_refdb *refdb
  * @param index An index object
  */
 GIT_EXTERN(void) git_repository_set_index(git_repository *repo, git_index *index);
+
+/**
+ * Set a repository to be bare.
+ *
+ * Clear the working directory and set core.bare to true.  You may also
+ * want to call `git_repository_set_index(repo, NULL)` since a bare repo
+ * typically does not have an index, but this function will not do that
+ * for you.
+ *
+ * @param repo Repo to make bare
+ * @return 0 on success, <0 on failure
+ */
+GIT_EXTERN(int) git_repository_set_bare(git_repository *repo);
 
 /** @} */
 GIT_END_DECL

@@ -358,13 +358,92 @@ void test_repo_init__extended_1(void)
 	cl_assert_equal_s("refs/heads/development", git_reference_symbolic_target(ref));
 	git_reference_free(ref);
 
-	cl_git_pass(git_remote_load(&remote, _repo, "origin"));
+	cl_git_pass(git_remote_lookup(&remote, _repo, "origin"));
 	cl_assert_equal_s("origin", git_remote_name(remote));
 	cl_assert_equal_s(opts.origin_url, git_remote_url(remote));
 	git_remote_free(remote);
 
 	git_repository_free(_repo);
 	cl_fixture_cleanup("root");
+}
+
+void test_repo_init__relative_gitdir(void)
+{
+	git_repository_init_options opts = GIT_REPOSITORY_INIT_OPTIONS_INIT;
+	git_config *cfg;
+	const char *worktree_path;
+	git_buf dot_git_content = GIT_BUF_INIT;
+
+	opts.workdir_path = "../c_wd";
+	opts.flags =
+		GIT_REPOSITORY_INIT_MKPATH |
+		GIT_REPOSITORY_INIT_RELATIVE_GITLINK |
+		GIT_REPOSITORY_INIT_NO_DOTGIT_DIR;
+
+	/* make the directory first, then it should succeed */
+	cl_git_pass(git_repository_init_ext(&_repo, "root/b/my_repository", &opts));
+
+	cl_assert(!git__suffixcmp(git_repository_workdir(_repo), "root/b/c_wd/"));
+	cl_assert(!git__suffixcmp(git_repository_path(_repo), "root/b/my_repository/"));
+	cl_assert(!git_repository_is_bare(_repo));
+	cl_assert(git_repository_is_empty(_repo));
+
+	/* Verify that the gitlink and worktree entries are relative */
+
+	/* Verify worktree */
+	cl_git_pass(git_repository_config(&cfg, _repo));
+	cl_git_pass(git_config_get_string(&worktree_path, cfg, "core.worktree"));
+	cl_assert_equal_s("../c_wd/", worktree_path);
+
+	/* Verify gitlink */
+	cl_git_pass(git_futils_readbuffer(&dot_git_content, "root/b/c_wd/.git"));
+	cl_assert_equal_s("gitdir: ../my_repository/", dot_git_content.ptr);
+
+	git_buf_free(&dot_git_content);
+	git_config_free(cfg);
+	cleanup_repository("root");
+}
+
+void test_repo_init__relative_gitdir_2(void)
+{
+	git_repository_init_options opts = GIT_REPOSITORY_INIT_OPTIONS_INIT;
+	git_config *cfg;
+	const char *worktree_path;
+	git_buf dot_git_content = GIT_BUF_INIT;
+	git_buf full_path = GIT_BUF_INIT;
+
+	cl_git_pass(git_path_prettify(&full_path, ".", NULL));
+	cl_git_pass(git_buf_joinpath(&full_path, full_path.ptr, "root/b/c_wd"));
+
+	opts.workdir_path = full_path.ptr;
+	opts.flags =
+		GIT_REPOSITORY_INIT_MKPATH |
+		GIT_REPOSITORY_INIT_RELATIVE_GITLINK |
+		GIT_REPOSITORY_INIT_NO_DOTGIT_DIR;
+
+	/* make the directory first, then it should succeed */
+	cl_git_pass(git_repository_init_ext(&_repo, "root/b/my_repository", &opts));
+	git_buf_free(&full_path);
+
+	cl_assert(!git__suffixcmp(git_repository_workdir(_repo), "root/b/c_wd/"));
+	cl_assert(!git__suffixcmp(git_repository_path(_repo), "root/b/my_repository/"));
+	cl_assert(!git_repository_is_bare(_repo));
+	cl_assert(git_repository_is_empty(_repo));
+
+	/* Verify that the gitlink and worktree entries are relative */
+
+	/* Verify worktree */
+	cl_git_pass(git_repository_config(&cfg, _repo));
+	cl_git_pass(git_config_get_string(&worktree_path, cfg, "core.worktree"));
+	cl_assert_equal_s("../c_wd/", worktree_path);
+
+	/* Verify gitlink */
+	cl_git_pass(git_futils_readbuffer(&dot_git_content, "root/b/c_wd/.git"));
+	cl_assert_equal_s("gitdir: ../my_repository/", dot_git_content.ptr);
+
+	git_buf_free(&dot_git_content);
+	git_config_free(cfg);
+	cleanup_repository("root");
 }
 
 #define CLEAR_FOR_CORE_FILEMODE(M) ((M) &= ~0177)
@@ -431,6 +510,32 @@ static void assert_mode_seems_okay(
 		GIT_MODE_TYPE(expect_mode), GIT_MODE_TYPE(st.st_mode), "%07o");
 }
 
+static const char *template_sandbox(const char *name)
+{
+	git_buf hooks_path = GIT_BUF_INIT, link_path = GIT_BUF_INIT;
+	const char *path = cl_fixture(name);
+
+	cl_fixture_sandbox(name);
+
+	/* create a symlink from link.sample to update.sample if the filesystem
+	 * supports it.
+	 */
+
+	cl_git_pass(git_buf_joinpath(&hooks_path, name, "hooks"));
+	cl_git_pass(git_buf_joinpath(&link_path, hooks_path.ptr, "link.sample"));
+
+#ifdef GIT_WIN32
+	cl_git_mkfile(link_path.ptr, "#!/bin/sh\necho hello, world\n");
+#else
+	cl_must_pass(symlink("update.sample", link_path.ptr));
+#endif
+
+	git_buf_free(&link_path);
+	git_buf_free(&hooks_path);
+
+	return path;
+}
+
 void test_repo_init__extended_with_template(void)
 {
 	git_buf expected = GIT_BUF_INIT;
@@ -439,10 +544,11 @@ void test_repo_init__extended_with_template(void)
 	int filemode;
 
 	cl_set_cleanup(&cleanup_repository, "templated.git");
+	template_sandbox("template");
 
 	opts.flags = GIT_REPOSITORY_INIT_MKPATH | GIT_REPOSITORY_INIT_BARE |
 		GIT_REPOSITORY_INIT_EXTERNAL_TEMPLATE;
-	opts.template_path = cl_fixture("template");
+	opts.template_path = "template";
 
 	cl_git_pass(git_repository_init_ext(&_repo, "templated.git", &opts));
 
@@ -450,8 +556,7 @@ void test_repo_init__extended_with_template(void)
 
 	cl_assert(!git__suffixcmp(git_repository_path(_repo), "/templated.git/"));
 
-	cl_git_pass(git_futils_readbuffer(
-		&expected, cl_fixture("template/description")));
+	cl_git_pass(git_futils_readbuffer(&expected, "template/description"));
 	cl_git_pass(git_futils_readbuffer(
 		&actual, "templated.git/description"));
 
@@ -463,12 +568,14 @@ void test_repo_init__extended_with_template(void)
 	filemode = cl_repo_get_bool(_repo, "core.filemode");
 
 	assert_hooks_match(
-		cl_fixture("template"), git_repository_path(_repo),
+		"template", git_repository_path(_repo),
 		"hooks/update.sample", filemode);
 
 	assert_hooks_match(
-		cl_fixture("template"), git_repository_path(_repo),
+		"template", git_repository_path(_repo),
 		"hooks/link.sample", filemode);
+
+	cl_fixture_cleanup("template");
 }
 
 void test_repo_init__extended_with_template_and_shared_mode(void)
@@ -480,10 +587,11 @@ void test_repo_init__extended_with_template_and_shared_mode(void)
 	const char *repo_path = NULL;
 
 	cl_set_cleanup(&cleanup_repository, "init_shared_from_tpl");
+	template_sandbox("template");
 
 	opts.flags = GIT_REPOSITORY_INIT_MKPATH |
 		GIT_REPOSITORY_INIT_EXTERNAL_TEMPLATE;
-	opts.template_path = cl_fixture("template");
+	opts.template_path = "template";
 	opts.mode = GIT_REPOSITORY_INIT_SHARED_GROUP;
 
 	cl_git_pass(git_repository_init_ext(&_repo, "init_shared_from_tpl", &opts));
@@ -494,7 +602,7 @@ void test_repo_init__extended_with_template_and_shared_mode(void)
 	filemode = cl_repo_get_bool(_repo, "core.filemode");
 
 	cl_git_pass(git_futils_readbuffer(
-		&expected, cl_fixture("template/description")));
+		&expected, "template/description"));
 	cl_git_pass(git_futils_readbuffer(
 		&actual, "init_shared_from_tpl/.git/description"));
 
@@ -513,15 +621,17 @@ void test_repo_init__extended_with_template_and_shared_mode(void)
 
 	/* for a non-symlinked hook, it should have shared permissions now */
 	assert_hooks_match(
-		cl_fixture("template"), git_repository_path(_repo),
+		"template", git_repository_path(_repo),
 		"hooks/update.sample", filemode);
 
 	/* for a symlinked hook, the permissions still should match the
 	 * source link, not the GIT_REPOSITORY_INIT_SHARED_GROUP value
 	 */
 	assert_hooks_match(
-		cl_fixture("template"), git_repository_path(_repo),
+		"template", git_repository_path(_repo),
 		"hooks/link.sample", filemode);
+
+	cl_fixture_cleanup("template");
 }
 
 void test_repo_init__can_reinit_an_initialized_repository(void)
@@ -603,4 +713,30 @@ void test_repo_init__init_with_initial_commit(void)
 	}
 
 	git_index_free(index);
+}
+
+void test_repo_init__at_filesystem_root(void)
+{
+	git_repository *repo;
+	const char *sandbox = clar_sandbox_path();
+	git_buf root = GIT_BUF_INIT;
+	int root_len;
+
+	if (!cl_getenv("GITTEST_INVASIVE_FILESYSTEM"))
+		cl_skip();
+
+	root_len = git_path_root(sandbox);
+	cl_assert(root_len >= 0);
+
+	git_buf_put(&root, sandbox, root_len+1);
+	git_buf_joinpath(&root, root.ptr, "libgit2_test_dir");
+
+	cl_assert(!git_path_exists(root.ptr));
+
+	cl_git_pass(git_repository_init(&repo, root.ptr, 0));
+	cl_assert(git_path_isdir(root.ptr));
+	cl_git_pass(git_futils_rmdir_r(root.ptr, NULL, GIT_RMDIR_REMOVE_FILES));
+
+	git_buf_free(&root);
+	git_repository_free(repo);
 }

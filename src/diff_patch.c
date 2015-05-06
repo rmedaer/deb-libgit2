@@ -14,12 +14,11 @@
 #include "fileops.h"
 
 /* cached information about a hunk in a diff */
-typedef struct diff_patch_hunk diff_patch_hunk;
-struct diff_patch_hunk {
+typedef struct diff_patch_hunk {
 	git_diff_hunk hunk;
 	size_t line_start;
 	size_t line_count;
-};
+} diff_patch_hunk;
 
 struct git_patch {
 	git_refcount rc;
@@ -274,6 +273,7 @@ int git_diff_foreach(
 		return error;
 
 	memset(&xo, 0, sizeof(xo));
+	memset(&patch, 0, sizeof(patch));
 	diff_output_init(
 		&xo.output, &diff->opts, file_cb, hunk_cb, data_cb, payload);
 	git_xdiff_init(&xo, &diff->opts);
@@ -822,7 +822,8 @@ int git_patch__invoke_callbacks(
 	for (i = 0; !error && i < git_array_size(patch->hunks); ++i) {
 		diff_patch_hunk *h = git_array_get(patch->hunks, i);
 
-		error = hunk_cb(patch->delta, &h->hunk, payload);
+		if (hunk_cb)
+			error = hunk_cb(patch->delta, &h->hunk, payload);
 
 		if (!line_cb)
 			continue;

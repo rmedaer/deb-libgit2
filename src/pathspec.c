@@ -296,6 +296,9 @@ int git_pathspec_matches_path(
 
 static void pathspec_match_free(git_pathspec_match_list *m)
 {
+	if (!m)
+		return;
+
 	git_pathspec_free(m->pathspec);
 	m->pathspec = NULL;
 
@@ -524,7 +527,7 @@ int git_pathspec_match_workdir(
 	assert(repo);
 
 	if (!(error = git_iterator_for_workdir(
-			&iter, repo, pathspec_match_iter_flags(flags), NULL, NULL))) {
+			&iter, repo, NULL, NULL, pathspec_match_iter_flags(flags), NULL, NULL))) {
 
 		error = pathspec_match_from_iterator(out, iter, flags, ps);
 
