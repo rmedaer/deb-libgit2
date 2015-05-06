@@ -1,3 +1,16 @@
+libgit2 (0.22.2-2) unstable; urgency=medium
+
+  * debian/control: Added dependency on pkg-config (Closes: #786494)
+  * debian/rules: Manually cleanup clar files (Closes: #786491)
+
+ -- Russell Sim <russell.sim@gmail.com>  Sat, 23 May 2015 22:42:04 -0700
+
+libgit2 (0.22.2-1) unstable; urgency=medium
+
+  * New upstream releaase 0.22.2 (Closes: #780495).
+
+ -- Russell Sim <russell.sim@gmail.com>  Wed, 06 May 2015 21:54:25 +1000
+
 libgit2 (0.21.3-1.1) unstable; urgency=medium
 
   * Non-maintainer upload.

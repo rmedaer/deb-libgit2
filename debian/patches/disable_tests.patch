@@ -14,7 +14,7 @@ index 6bd25aa..f44190e 100644
  
  	ENABLE_TESTING()
 -	ADD_TEST(libgit2_clar libgit2_clar -ionline)
-+	ADD_TEST(libgit2_clar libgit2_clar -xonline -xblame::simple::trivial_libgit2)
++	ADD_TEST(libgit2_clar libgit2_clar -xonline -xblame::simple::trivial_libgit2 -xnetwork::remote::remotes::single_branch -xnetwork::remote::remotes::restricted_refspecs)
  ENDIF ()
  
  IF (TAGS)
