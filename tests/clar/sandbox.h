@@ -65,14 +65,19 @@ static void clar_unsandbox(void)
 	if (_clar_path[0] == '\0')
 		return;
 
-	chdir("..");
+	cl_must_pass(chdir(".."));
 
 	fs_rm(_clar_path);
 }
 
 static int build_sandbox_path(void)
 {
+#ifdef CLAR_TMPDIR
+	const char path_tail[] = CLAR_TMPDIR "_XXXXXX";
+#else
 	const char path_tail[] = "clar_tmp_XXXXXX";
+#endif
+
 	size_t len;
 
 	if (find_tmp_path(_clar_path, sizeof(_clar_path)) < 0)

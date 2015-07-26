@@ -8,6 +8,7 @@
 #include "common.h"
 #include "git2/oid.h"
 #include "repository.h"
+#include "global.h"
 #include <string.h>
 #include <limits.h>
 
@@ -97,6 +98,13 @@ void git_oid_pathfmt(char *str, const git_oid *oid)
 	*str++ = '/';
 	for (i = 1; i < sizeof(oid->id); i++)
 		str = fmt_one(str, oid->id[i]);
+}
+
+char *git_oid_tostr_s(const git_oid *oid)
+{
+	char *str = GIT_GLOBAL->oid_fmt;
+	git_oid_nfmt(str, GIT_OID_HEXSZ + 1, oid);
+	return str;
 }
 
 char *git_oid_allocfmt(const git_oid *oid)
@@ -203,7 +211,7 @@ int git_oid_ncmp(const git_oid *oid_a, const git_oid *oid_b, size_t len)
 
 int git_oid_strcmp(const git_oid *oid_a, const char *str)
 {
-	const unsigned char *a = oid_a->id;
+	const unsigned char *a;
 	unsigned char strval;
 	int hexval;
 
@@ -253,7 +261,7 @@ struct git_oid_shorten {
 
 static int resize_trie(git_oid_shorten *self, size_t new_size)
 {
-	self->nodes = git__realloc(self->nodes, new_size * sizeof(trie_node));
+	self->nodes = git__reallocarray(self->nodes, new_size, sizeof(trie_node));
 	GITERR_CHECK_ALLOC(self->nodes);
 
 	if (new_size > self->size) {

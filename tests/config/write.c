@@ -1,4 +1,6 @@
 #include "clar_libgit2.h"
+#include "buffer.h"
+#include "fileops.h"
 
 void test_config_write__initialize(void)
 {
@@ -105,18 +107,190 @@ void test_config_write__delete_value_at_specific_level(void)
 	git_config_free(cfg);
 }
 
+/*
+ * This test exposes a bug where duplicate empty section headers could prevent
+ * deletion of config entries.
+ */
+void test_config_write__delete_value_with_duplicate_header(void)
+{
+	const char *file_name  = "config-duplicate-header";
+	const char *entry_name = "remote.origin.url";
+	git_config *cfg;
+	git_config_entry *entry;
+
+	/* This config can occur after removing and re-adding the origin remote */
+	const char *file_content =
+		"[remote \"origin\"]\n"		\
+		"[branch \"master\"]\n"		\
+		"	remote = \"origin\"\n"	\
+		"[remote \"origin\"]\n"		\
+		"	url = \"foo\"\n";
+
+	/* Write the test config and make sure the expected entry exists */
+	cl_git_mkfile(file_name, file_content);
+	cl_git_pass(git_config_open_ondisk(&cfg, file_name));
+	cl_git_pass(git_config_get_entry(&entry, cfg, entry_name));
+
+	/* Delete that entry */
+	cl_git_pass(git_config_delete_entry(cfg, entry_name));
+
+	/* Reopen the file and make sure the entry no longer exists */
+	git_config_entry_free(entry);
+	git_config_free(cfg);
+	cl_git_pass(git_config_open_ondisk(&cfg, file_name));
+	cl_git_fail(git_config_get_entry(&entry, cfg, entry_name));
+
+	/* Cleanup */
+	git_config_entry_free(entry);
+	git_config_free(cfg);
+}
+
+/*
+ * This test exposes a bug where duplicate section headers could cause
+ * config_write to add a new entry when one already exists.
+ */
+void test_config_write__add_value_with_duplicate_header(void)
+{
+	const char *file_name  = "config-duplicate-insert";
+	const char *entry_name = "foo.c";
+	const char *old_val    = "old";
+	const char *new_val    = "new";
+	const char *str;
+	git_config *cfg, *snapshot;
+
+	/* c = old should be replaced by c = new.
+	 * The bug causes c = new to be inserted under the first 'foo' header.
+	 */
+	const char *file_content =
+		"[foo]\n"   \
+		"  a = b\n" \
+		"[other]\n" \
+		"  a = b\n" \
+		"[foo]\n"   \
+		"  c = old\n";
+
+	/* Write the test config */
+	cl_git_mkfile(file_name, file_content);
+	cl_git_pass(git_config_open_ondisk(&cfg, file_name));
+
+	/* make sure the expected entry (foo.c) exists */
+	cl_git_pass(git_config_snapshot(&snapshot, cfg));
+	cl_git_pass(git_config_get_string(&str, snapshot, entry_name));
+	cl_assert_equal_s(old_val, str);
+	git_config_free(snapshot);
+
+	/* Try setting foo.c to something else */
+	cl_git_pass(git_config_set_string(cfg, entry_name, new_val));
+	git_config_free(cfg);
+
+	/* Reopen the file and make sure the new value was set */
+	cl_git_pass(git_config_open_ondisk(&cfg, file_name));
+	cl_git_pass(git_config_snapshot(&snapshot, cfg));
+	cl_git_pass(git_config_get_string(&str, snapshot, entry_name));
+	cl_assert_equal_s(new_val, str);
+
+	/* Cleanup */
+	git_config_free(snapshot);
+	git_config_free(cfg);
+}
+
+void test_config_write__overwrite_value_with_duplicate_header(void)
+{
+	const char *file_name  = "config-duplicate-header";
+	const char *entry_name = "remote.origin.url";
+	git_config *cfg;
+	git_config_entry *entry;
+
+	/* This config can occur after removing and re-adding the origin remote */
+	const char *file_content =
+		"[remote \"origin\"]\n"		\
+		"[branch \"master\"]\n"		\
+		"	remote = \"origin\"\n"	\
+		"[remote \"origin\"]\n"		\
+		"	url = \"foo\"\n";
+
+	/* Write the test config and make sure the expected entry exists */
+	cl_git_mkfile(file_name, file_content);
+	cl_git_pass(git_config_open_ondisk(&cfg, file_name));
+	cl_git_pass(git_config_get_entry(&entry, cfg, entry_name));
+
+	/* Update that entry */
+	cl_git_pass(git_config_set_string(cfg, entry_name, "newurl"));
+
+	/* Reopen the file and make sure the entry was updated */
+	git_config_entry_free(entry);
+	git_config_free(cfg);
+	cl_git_pass(git_config_open_ondisk(&cfg, file_name));
+	cl_git_pass(git_config_get_entry(&entry, cfg, entry_name));
+
+	cl_assert_equal_s("newurl", entry->value);
+
+	/* Cleanup */
+	git_config_entry_free(entry);
+	git_config_free(cfg);
+}
+
+static int multivar_cb(const git_config_entry *entry, void *data)
+{
+	int *n = (int *)data;
+
+	cl_assert_equal_s(entry->value, "newurl");
+
+	(*n)++;
+
+	return 0;
+}
+
+void test_config_write__overwrite_multivar_within_duplicate_header(void)
+{
+	const char *file_name  = "config-duplicate-header";
+	const char *entry_name = "remote.origin.url";
+	git_config *cfg;
+	git_config_entry *entry;
+	int n = 0;
+
+	/* This config can occur after removing and re-adding the origin remote */
+	const char *file_content =
+		"[remote \"origin\"]\n"		\
+		"	url = \"bar\"\n"		\
+		"[branch \"master\"]\n"		\
+		"	remote = \"origin\"\n"	\
+		"[remote \"origin\"]\n"		\
+		"	url = \"foo\"\n";
+
+	/* Write the test config and make sure the expected entry exists */
+	cl_git_mkfile(file_name, file_content);
+	cl_git_pass(git_config_open_ondisk(&cfg, file_name));
+	cl_git_pass(git_config_get_entry(&entry, cfg, entry_name));
+
+	/* Update that entry */
+	cl_git_pass(git_config_set_multivar(cfg, entry_name, ".*", "newurl"));
+	git_config_entry_free(entry);
+	git_config_free(cfg);
+
+	/* Reopen the file and make sure the entry was updated */
+	cl_git_pass(git_config_open_ondisk(&cfg, file_name));
+	cl_git_pass(git_config_get_multivar_foreach(cfg, entry_name, NULL, multivar_cb, &n));
+	cl_assert_equal_i(2, n);
+
+	/* Cleanup */
+	git_config_free(cfg);
+}
+
 void test_config_write__write_subsection(void)
 {
 	git_config *cfg;
-	const char *str;
+	git_buf buf = GIT_BUF_INIT;
 
 	cl_git_pass(git_config_open_ondisk(&cfg, "config9"));
 	cl_git_pass(git_config_set_string(cfg, "my.own.var", "works"));
 	git_config_free(cfg);
 
 	cl_git_pass(git_config_open_ondisk(&cfg, "config9"));
-	cl_git_pass(git_config_get_string(&str, cfg, "my.own.var"));
-	cl_assert_equal_s("works", str);
+	cl_git_pass(git_config_get_string_buf(&buf, cfg, "my.own.var"));
+	cl_assert_equal_s("works", git_buf_cstr(&buf));
+
+	git_buf_free(&buf);
 	git_config_free(cfg);
 }
 
@@ -132,46 +306,52 @@ void test_config_write__delete_inexistent(void)
 void test_config_write__value_containing_quotes(void)
 {
 	git_config *cfg;
-	const char* str;
+	git_buf buf = GIT_BUF_INIT;
 
 	cl_git_pass(git_config_open_ondisk(&cfg, "config9"));
 	cl_git_pass(git_config_set_string(cfg, "core.somevar", "this \"has\" quotes"));
-	cl_git_pass(git_config_get_string(&str, cfg, "core.somevar"));
-	cl_assert_equal_s(str, "this \"has\" quotes");
+	cl_git_pass(git_config_get_string_buf(&buf, cfg, "core.somevar"));
+	cl_assert_equal_s("this \"has\" quotes", git_buf_cstr(&buf));
+	git_buf_clear(&buf);
 	git_config_free(cfg);
 
 	cl_git_pass(git_config_open_ondisk(&cfg, "config9"));
-	cl_git_pass(git_config_get_string(&str, cfg, "core.somevar"));
-	cl_assert_equal_s(str, "this \"has\" quotes");
+	cl_git_pass(git_config_get_string_buf(&buf, cfg, "core.somevar"));
+	cl_assert_equal_s("this \"has\" quotes", git_buf_cstr(&buf));
+	git_buf_clear(&buf);
 	git_config_free(cfg);
 
 	/* The code path for values that already exist is different, check that one as well */
 	cl_git_pass(git_config_open_ondisk(&cfg, "config9"));
 	cl_git_pass(git_config_set_string(cfg, "core.somevar", "this also \"has\" quotes"));
-	cl_git_pass(git_config_get_string(&str, cfg, "core.somevar"));
-	cl_assert_equal_s(str, "this also \"has\" quotes");
+	cl_git_pass(git_config_get_string_buf(&buf, cfg, "core.somevar"));
+	cl_assert_equal_s("this also \"has\" quotes", git_buf_cstr(&buf));
+	git_buf_clear(&buf);
 	git_config_free(cfg);
 
 	cl_git_pass(git_config_open_ondisk(&cfg, "config9"));
-	cl_git_pass(git_config_get_string(&str, cfg, "core.somevar"));
-	cl_assert_equal_s(str, "this also \"has\" quotes");
+	cl_git_pass(git_config_get_string_buf(&buf, cfg, "core.somevar"));
+	cl_assert_equal_s("this also \"has\" quotes", git_buf_cstr(&buf));
+	git_buf_free(&buf);
 	git_config_free(cfg);
 }
 
 void test_config_write__escape_value(void)
 {
 	git_config *cfg;
-	const char* str;
+	git_buf buf = GIT_BUF_INIT;
 
 	cl_git_pass(git_config_open_ondisk(&cfg, "config9"));
 	cl_git_pass(git_config_set_string(cfg, "core.somevar", "this \"has\" quotes and \t"));
-	cl_git_pass(git_config_get_string(&str, cfg, "core.somevar"));
-	cl_assert_equal_s(str, "this \"has\" quotes and \t");
+	cl_git_pass(git_config_get_string_buf(&buf, cfg, "core.somevar"));
+	cl_assert_equal_s("this \"has\" quotes and \t", git_buf_cstr(&buf));
+	git_buf_clear(&buf);
 	git_config_free(cfg);
 
 	cl_git_pass(git_config_open_ondisk(&cfg, "config9"));
-	cl_git_pass(git_config_get_string(&str, cfg, "core.somevar"));
-	cl_assert_equal_s(str, "this \"has\" quotes and \t");
+	cl_git_pass(git_config_get_string_buf(&buf, cfg, "core.somevar"));
+	cl_assert_equal_s("this \"has\" quotes and \t", git_buf_cstr(&buf));
+	git_buf_free(&buf);
 	git_config_free(cfg);
 }
 
@@ -180,7 +360,7 @@ void test_config_write__add_value_at_specific_level(void)
 	git_config *cfg, *cfg_specific;
 	int i;
 	int64_t l, expected = +9223372036854775803;
-	const char *s;
+	git_buf buf = GIT_BUF_INIT;
 
 	// open config15 as global level config file
 	cl_git_pass(git_config_new(&cfg));
@@ -207,9 +387,10 @@ void test_config_write__add_value_at_specific_level(void)
 	cl_assert(l == expected);
 	cl_git_pass(git_config_get_bool(&i, cfg, "core.boolglobal"));
 	cl_assert_equal_b(true, i);
-	cl_git_pass(git_config_get_string(&s, cfg, "core.stringglobal"));
-	cl_assert_equal_s("I'm a global config value!", s);
+	cl_git_pass(git_config_get_string_buf(&buf, cfg, "core.stringglobal"));
+	cl_assert_equal_s("I'm a global config value!", git_buf_cstr(&buf));
 
+	git_buf_free(&buf);
 	git_config_free(cfg);
 }
 
@@ -229,9 +410,25 @@ void test_config_write__add_value_at_file_with_no_clrf_at_the_end(void)
 	git_config_free(cfg);
 }
 
-void test_config_write__add_value_which_needs_quotes(void)
+void test_config_write__add_section_at_file_with_no_clrf_at_the_end(void)
 {
 	git_config *cfg;
+	int i;
+
+	cl_git_pass(git_config_open_ondisk(&cfg, "config17"));
+	cl_git_pass(git_config_set_int32(cfg, "diff.context", 10));
+	git_config_free(cfg);
+
+	cl_git_pass(git_config_open_ondisk(&cfg, "config17"));
+	cl_git_pass(git_config_get_int32(&i, cfg, "diff.context"));
+	cl_assert_equal_i(10, i);
+
+	git_config_free(cfg);
+}
+
+void test_config_write__add_value_which_needs_quotes(void)
+{
+	git_config *cfg, *base;
 	const char* str1;
 	const char* str2;
 	const char* str3;
@@ -246,7 +443,8 @@ void test_config_write__add_value_which_needs_quotes(void)
 	cl_git_pass(git_config_set_string(cfg, "core.startwhithsapceandcontainsdoublequote", " some\"thing"));
 	git_config_free(cfg);
 
-	cl_git_pass(git_config_open_ondisk(&cfg, "config17"));
+	cl_git_pass(git_config_open_ondisk(&base, "config17"));
+	cl_git_pass(git_config_snapshot(&cfg, base));
 	cl_git_pass(git_config_get_string(&str1, cfg, "core.startwithspace"));
 	cl_assert_equal_s(" Something", str1);
 	cl_git_pass(git_config_get_string(&str2, cfg, "core.endwithspace"));
@@ -258,6 +456,7 @@ void test_config_write__add_value_which_needs_quotes(void)
 	cl_git_pass(git_config_get_string(&str5, cfg, "core.startwhithsapceandcontainsdoublequote"));
 	cl_assert_equal_s(" some\"thing", str5);
 	git_config_free(cfg);
+	git_config_free(base);
 }
 
 void test_config_write__can_set_a_value_to_NULL(void)
@@ -278,15 +477,16 @@ void test_config_write__can_set_an_empty_value(void)
 {
 	git_repository *repository;
 	git_config *config;
-	const char * str;
+	git_buf buf = {0};
 
 	repository = cl_git_sandbox_init("testrepo.git");
 	cl_git_pass(git_repository_config(&config, repository));
 
 	cl_git_pass(git_config_set_string(config, "core.somevar", ""));
-	cl_git_pass(git_config_get_string(&str, config, "core.somevar"));
-	cl_assert_equal_s(str, "");
+	cl_git_pass(git_config_get_string_buf(&buf, config, "core.somevar"));
+	cl_assert_equal_s("", buf.ptr);
 
+	git_buf_free(&buf);
 	git_config_free(config);
 	cl_git_sandbox_cleanup();
 }
@@ -324,10 +524,109 @@ void test_config_write__outside_change(void)
 	cl_git_pass(git_config_get_int32(&tmp, cfg, "old.value"));
 	cl_assert_equal_i(6, tmp);
 
-	cl_git_pass(git_config_refresh(cfg));
-
-	cl_git_pass(git_config_get_int32(&tmp, cfg, "old.value"));
-	cl_assert_equal_i(6, tmp);
-
 	git_config_free(cfg);
 }
+
+#define SECTION_FOO \
+	"\n"                     \
+	"    \n"                 \
+	" [section \"foo\"]  \n" \
+	" # here's a comment\n"  \
+	"\tname = \"value\"\n"   \
+	"  name2 = \"value2\"\n" \
+	";  another comment!\n"
+
+#define SECTION_BAR \
+	"[section \"bar\"]\t\n"  \
+	"\t  \n"                 \
+	" barname=\"value\"\n"
+
+
+void test_config_write__preserves_whitespace_and_comments(void)
+{
+	const char *file_name  = "config-duplicate-header";
+	const char *n;
+	git_config *cfg;
+	git_buf newfile = GIT_BUF_INIT;
+
+	/* This config can occur after removing and re-adding the origin remote */
+	const char *file_content = SECTION_FOO SECTION_BAR;
+
+	/* Write the test config and make sure the expected entry exists */
+	cl_git_mkfile(file_name, file_content);
+	cl_git_pass(git_config_open_ondisk(&cfg, file_name));
+	cl_git_pass(git_config_set_string(cfg, "section.foo.other", "otherval"));
+	cl_git_pass(git_config_set_string(cfg, "newsection.newname", "new_value"));
+
+	/* Ensure that we didn't needlessly mangle the config file */
+	cl_git_pass(git_futils_readbuffer(&newfile, file_name));
+	n = newfile.ptr;
+
+	cl_assert_equal_strn(SECTION_FOO, n, strlen(SECTION_FOO));
+	n += strlen(SECTION_FOO);
+
+	cl_assert_equal_strn("\tother = otherval\n", n, strlen("\tother = otherval\n"));
+	n += strlen("\tother = otherval\n");
+
+	cl_assert_equal_strn(SECTION_BAR, n, strlen(SECTION_BAR));
+	n += strlen(SECTION_BAR);
+
+	cl_assert_equal_s("[newsection]\n\tnewname = new_value\n", n);
+
+	git_buf_free(&newfile);
+	git_config_free(cfg);
+}
+
+void test_config_write__preserves_entry_with_name_only(void)
+{
+	const char *file_name  = "config-empty-value";
+	git_config *cfg;
+	git_buf newfile = GIT_BUF_INIT;
+
+	/* Write the test config and make sure the expected entry exists */
+	cl_git_mkfile(file_name, "[section \"foo\"]\n\tname\n");
+	cl_git_pass(git_config_open_ondisk(&cfg, file_name));
+	cl_git_pass(git_config_set_string(cfg, "newsection.newname", "new_value"));
+	cl_git_pass(git_config_set_string(cfg, "section.foo.other", "otherval"));
+
+	cl_git_pass(git_futils_readbuffer(&newfile, file_name));
+	cl_assert_equal_s("[section \"foo\"]\n\tname\n\tother = otherval\n[newsection]\n\tnewname = new_value\n", newfile.ptr);
+
+	git_buf_free(&newfile);
+	git_config_free(cfg);
+}
+
+void test_config_write__to_empty_file(void)
+{
+	git_config *cfg;
+	const char *filename = "config-file";
+	git_buf result = GIT_BUF_INIT;
+
+	cl_git_mkfile(filename, "");
+	cl_git_pass(git_config_open_ondisk(&cfg, filename));
+	cl_git_pass(git_config_set_string(cfg, "section.name", "value"));
+	git_config_free(cfg);
+
+	cl_git_pass(git_futils_readbuffer(&result, "config-file"));
+	cl_assert_equal_s("[section]\n\tname = value\n", result.ptr);
+
+	git_buf_free(&result);
+}
+
+void test_config_write__to_file_with_only_comment(void)
+{
+	git_config *cfg;
+	const char *filename = "config-file";
+	git_buf result = GIT_BUF_INIT;
+
+	cl_git_mkfile(filename, "\n\n");
+	cl_git_pass(git_config_open_ondisk(&cfg, filename));
+	cl_git_pass(git_config_set_string(cfg, "section.name", "value"));
+	git_config_free(cfg);
+
+	cl_git_pass(git_futils_readbuffer(&result, "config-file"));
+	cl_assert_equal_s("\n\n[section]\n\tname = value\n", result.ptr);
+
+	git_buf_free(&result);
+}
+

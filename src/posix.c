@@ -151,15 +151,22 @@ int p_rename(const char *from, const char *to)
 
 #endif /* GIT_WIN32 */
 
-int p_read(git_file fd, void *buf, size_t cnt)
+ssize_t p_read(git_file fd, void *buf, size_t cnt)
 {
 	char *b = buf;
+
+	if (!git__is_ssizet(cnt)) {
+#ifdef GIT_WIN32
+		SetLastError(ERROR_INVALID_PARAMETER);
+#endif
+		errno = EINVAL;
+		return -1;
+	}
 
 	while (cnt) {
 		ssize_t r;
 #ifdef GIT_WIN32
-		assert((size_t)((unsigned int)cnt) == cnt);
-		r = read(fd, b, (unsigned int)cnt);
+		r = read(fd, b, cnt > INT_MAX ? INT_MAX : (unsigned int)cnt);
 #else
 		r = read(fd, b, cnt);
 #endif
@@ -173,7 +180,7 @@ int p_read(git_file fd, void *buf, size_t cnt)
 		cnt -= r;
 		b += r;
 	}
-	return (int)(b - (char *)buf);
+	return (b - (char *)buf);
 }
 
 int p_write(git_file fd, const void *buf, size_t cnt)
@@ -207,10 +214,11 @@ int p_write(git_file fd, const void *buf, size_t cnt)
 
 #include "map.h"
 
-long git__page_size(void)
+int git__page_size(size_t *page_size)
 {
 	/* dummy; here we don't need any alignment anyway */
-	return 4096;
+	*page_size = 4096;
+	return 0;
 }
 
 
@@ -229,7 +237,9 @@ int p_mmap(git_map *out, size_t len, int prot, int flags, int fd, git_off_t offs
 	out->data = malloc(len);
 	GITERR_CHECK_ALLOC(out->data);
 
-	if ((p_lseek(fd, offset, SEEK_SET) < 0) || ((size_t)p_read(fd, out->data, len) != len)) {
+	if (!git__is_ssizet(len) ||
+		(p_lseek(fd, offset, SEEK_SET) < 0) ||
+		(p_read(fd, out->data, len) != (ssize_t)len)) {
 		giterr_set(GITERR_OS, "mmap emulation failed");
 		return -1;
 	}

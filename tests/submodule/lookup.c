@@ -31,6 +31,9 @@ void test_submodule_lookup__simple_lookup(void)
 
 	/* lookup non-existent item */
 	refute_submodule_exists(g_repo, "no_such_file", GIT_ENOTFOUND);
+
+	/* lookup a submodule by path with a trailing slash */
+	assert_submodule_exists(g_repo, "sm_added_and_uncommited/");
 }
 
 void test_submodule_lookup__accessors(void)
@@ -49,7 +52,7 @@ void test_submodule_lookup__accessors(void)
 	cl_assert(git_oid_streq(git_submodule_wd_id(sm), oid) == 0);
 
 	cl_assert(git_submodule_ignore(sm) == GIT_SUBMODULE_IGNORE_NONE);
-	cl_assert(git_submodule_update(sm) == GIT_SUBMODULE_UPDATE_CHECKOUT);
+	cl_assert(git_submodule_update_strategy(sm) == GIT_SUBMODULE_UPDATE_CHECKOUT);
 
 	git_submodule_free(sm);
 
@@ -112,7 +115,7 @@ void test_submodule_lookup__lookup_even_with_unborn_head(void)
 
 	/* put us on an unborn branch */
 	cl_git_pass(git_reference_symbolic_create(
-		&head, g_repo, "HEAD", "refs/heads/garbage", 1, NULL, NULL));
+		&head, g_repo, "HEAD", "refs/heads/garbage", 1, NULL));
 	git_reference_free(head);
 
 	test_submodule_lookup__simple_lookup(); /* baseline should still pass */
@@ -259,13 +262,33 @@ void test_submodule_lookup__just_added(void)
 	assert_submodule_exists(g_repo, "sm_just_added_head");
 
 	{
-		git_signature *sig;
-		cl_git_pass(git_signature_now(&sig, "resetter", "resetter@email.com"));
-		cl_git_pass(git_reference_create(NULL, g_repo, "refs/heads/master", git_reference_target(original_head), 1, sig, "move head back"));
-		git_signature_free(sig);
+		cl_git_pass(git_reference_create(NULL, g_repo, "refs/heads/master", git_reference_target(original_head), 1, "move head back"));
 		git_reference_free(original_head);
 	}
 
 	refute_submodule_exists(g_repo, "sm_just_added_head", GIT_EEXISTS);
 }
 
+/* Test_App and Test_App2 are fairly similar names, make sure we load the right one */
+void test_submodule_lookup__prefix_name(void)
+{
+	git_submodule *sm;
+
+	cl_git_rewritefile("submod2/.gitmodules",
+			   "[submodule \"Test_App\"]\n"
+			   "    path = Test_App\n"
+			   "    url = ../Test_App\n"
+			   "[submodule \"Test_App2\"]\n"
+			   "    path = Test_App2\n"
+			   "    url = ../Test_App\n");
+
+	cl_git_pass(git_submodule_lookup(&sm, g_repo, "Test_App"));
+	cl_assert_equal_s("Test_App", git_submodule_name(sm));
+
+	git_submodule_free(sm);
+
+	cl_git_pass(git_submodule_lookup(&sm, g_repo, "Test_App2"));
+	cl_assert_equal_s("Test_App2", git_submodule_name(sm));
+
+	git_submodule_free(sm);
+}

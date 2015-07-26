@@ -100,12 +100,18 @@ $ git status --short
 	assert_blob_oid("refs/stash:how", "e6d64adb2c7f3eb8feb493b556cc8070dca379a3");	/* not so small and */
 	assert_blob_oid("refs/stash:who", "a0400d4954659306a976567af43125a0b1aa8595");	/* funky world */
 	assert_blob_oid("refs/stash:when", NULL);
+	assert_blob_oid("refs/stash:why", "88c2533e21f098b89c91a431d8075cbdbe422a51"); /* would anybody use stash? */
+	assert_blob_oid("refs/stash:where", "e3d6434ec12eb76af8dfa843a64ba6ab91014a0b"); /* .... */
+	assert_blob_oid("refs/stash:.gitignore", "ac4d88de61733173d9959e4b77c69b9f17a00980");
 	assert_blob_oid("refs/stash:just.ignore", NULL);
 
 	assert_blob_oid("refs/stash^2:what", "dd7e1c6f0fefe118f0b63d9f10908c460aa317a6");	/* goodbye */
 	assert_blob_oid("refs/stash^2:how", "e6d64adb2c7f3eb8feb493b556cc8070dca379a3");	/* not so small and */
 	assert_blob_oid("refs/stash^2:who", "cc628ccd10742baea8241c5924df992b5c019f71");	/* world */
 	assert_blob_oid("refs/stash^2:when", NULL);
+	assert_blob_oid("refs/stash^2:why", "88c2533e21f098b89c91a431d8075cbdbe422a51"); /* would anybody use stash? */
+	assert_blob_oid("refs/stash^2:where", "e08f7fbb9a42a0c5367cf8b349f1f08c3d56bd72"); /* ???? */
+	assert_blob_oid("refs/stash^2:.gitignore", "ac4d88de61733173d9959e4b77c69b9f17a00980");
 	assert_blob_oid("refs/stash^2:just.ignore", NULL);
 
 	assert_blob_oid("refs/stash^3", NULL);
@@ -195,7 +201,7 @@ void test_stash_save__cannot_stash_against_an_unborn_branch(void)
 {
 	git_reference *head;
 
-	cl_git_pass(git_reference_symbolic_create(&head, repo, "HEAD", "refs/heads/unborn", 1, NULL, NULL));
+	cl_git_pass(git_reference_symbolic_create(&head, repo, "HEAD", "refs/heads/unborn", 1, NULL));
 
 	cl_assert_equal_i(GIT_EUNBORNBRANCH,
 		git_stash_save(&stash_tip_oid, repo, signature, NULL, GIT_STASH_DEFAULT));
@@ -217,7 +223,7 @@ void test_stash_save__cannot_stash_against_a_bare_repository(void)
 
 void test_stash_save__can_stash_against_a_detached_head(void)
 {
-	git_repository_detach_head(repo, NULL, NULL);
+	git_repository_detach_head(repo);
 
 	cl_git_pass(git_stash_save(&stash_tip_oid, repo, signature, NULL, GIT_STASH_DEFAULT));
 
@@ -227,18 +233,12 @@ void test_stash_save__can_stash_against_a_detached_head(void)
 
 void test_stash_save__stashing_updates_the_reflog(void)
 {
-	char *sha;
-
 	assert_object_oid("refs/stash@{0}", NULL, GIT_OBJ_COMMIT);
 
 	cl_git_pass(git_stash_save(&stash_tip_oid, repo, signature, NULL, GIT_STASH_DEFAULT));
 
-	sha = git_oid_allocfmt(&stash_tip_oid);
-
-	assert_object_oid("refs/stash@{0}", sha, GIT_OBJ_COMMIT);
+	assert_object_oid("refs/stash@{0}", git_oid_tostr_s(&stash_tip_oid), GIT_OBJ_COMMIT);
 	assert_object_oid("refs/stash@{1}", NULL, GIT_OBJ_COMMIT);
-
-	git__free(sha);
 }
 
 void test_stash_save__cannot_stash_when_there_are_no_local_change(void)
@@ -249,11 +249,13 @@ void test_stash_save__cannot_stash_when_there_are_no_local_change(void)
 	cl_git_pass(git_repository_index(&index, repo));
 
 	/*
-	 * 'what' and 'who' are being committed.
-	 * 'when' remain untracked.
+	 * 'what', 'where' and 'who' are being committed.
+	 * 'when' remains untracked.
 	 */
 	cl_git_pass(git_index_add_bypath(index, "what"));
+	cl_git_pass(git_index_add_bypath(index, "where"));
 	cl_git_pass(git_index_add_bypath(index, "who"));
+
 	cl_repo_commit_from_index(NULL, repo, signature, 0, "Initial commit");
 	git_index_free(index);
 
@@ -374,6 +376,23 @@ void test_stash_save__including_untracked_without_any_untracked_file_creates_an_
 	assert_object_oid("stash^3^{tree}", EMPTY_TREE, GIT_OBJ_TREE);
 }
 
+void test_stash_save__ignored_directory(void)
+{
+	cl_git_pass(p_mkdir("stash/ignored_directory", 0777));
+	cl_git_pass(p_mkdir("stash/ignored_directory/sub", 0777));
+	cl_git_mkfile("stash/ignored_directory/sub/some_file", "stuff");
+
+	assert_status(repo, "ignored_directory/sub/some_file", GIT_STATUS_WT_NEW);
+	cl_git_pass(git_ignore_add_rule(repo, "ignored_directory/"));
+	assert_status(repo, "ignored_directory/sub/some_file", GIT_STATUS_IGNORED);
+
+	cl_git_pass(git_stash_save(&stash_tip_oid, repo, signature, NULL, GIT_STASH_INCLUDE_UNTRACKED | GIT_STASH_INCLUDE_IGNORED));
+
+	cl_assert(!git_path_exists("stash/ignored_directory/sub/some_file"));
+	cl_assert(!git_path_exists("stash/ignored_directory/sub"));
+	cl_assert(!git_path_exists("stash/ignored_directory"));
+}
+
 void test_stash_save__skip_submodules(void)
 {
 	git_repository *untracked_repo;
@@ -387,4 +406,23 @@ void test_stash_save__skip_submodules(void)
 		&stash_tip_oid, repo, signature, NULL, GIT_STASH_INCLUDE_UNTRACKED));
 
 	assert_status(repo, "untracked_repo/", GIT_STATUS_WT_NEW);
+}
+
+void test_stash_save__deleted_in_index_modified_in_workdir(void)
+{
+	git_index *index;
+
+	git_repository_index(&index, repo);
+
+	cl_git_pass(git_index_remove_bypath(index, "who"));
+	cl_git_pass(git_index_write(index));
+
+	assert_status(repo, "who", GIT_STATUS_WT_NEW | GIT_STATUS_INDEX_DELETED);
+
+	cl_git_pass(git_stash_save(&stash_tip_oid, repo, signature, NULL, GIT_STASH_DEFAULT));
+
+	assert_blob_oid("stash@{0}^0:who", "a0400d4954659306a976567af43125a0b1aa8595");
+	assert_blob_oid("stash@{0}^2:who", NULL);
+
+	git_index_free(index);
 }

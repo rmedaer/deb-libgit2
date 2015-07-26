@@ -71,9 +71,7 @@ struct pack_chain_elem {
 typedef git_array_t(struct pack_chain_elem) git_dependency_chain;
 
 #include "offmap.h"
-
-GIT__USE_OFFMAP;
-GIT__USE_OIDMAP;
+#include "oidmap.h"
 
 #define GIT_PACK_CACHE_MEMORY_LIMIT 16 * 1024 * 1024
 #define GIT_PACK_CACHE_SIZE_LIMIT 1024 * 1024 /* don't bother caching anything over 1MB */
@@ -90,6 +88,7 @@ struct git_pack_file {
 	git_mwindow_file mwf;
 	git_map index_map;
 	git_mutex lock; /* protect updates to mwf and index_map */
+	git_atomic refcount;
 
 	uint32_t num_objects;
 	uint32_t num_bad_objects;
@@ -122,6 +121,8 @@ typedef struct git_packfile_stream {
 } git_packfile_stream;
 
 size_t git_packfile__object_header(unsigned char *hdr, size_t size, git_otype type);
+
+int git_packfile__name(char **out, const char *path);
 
 int git_packfile_unpack_header(
 		size_t *size_p,

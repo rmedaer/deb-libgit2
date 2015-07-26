@@ -19,7 +19,7 @@ static int push_spec_rref_cmp(const void *a, const void *b)
 {
 	const push_spec *push_spec_a = a, *push_spec_b = b;
 
-	return strcmp(push_spec_a->rref, push_spec_b->rref);
+	return strcmp(push_spec_a->refspec.dst, push_spec_b->refspec.dst);
 }
 
 static int push_status_ref_cmp(const void *a, const void *b)
@@ -54,6 +54,13 @@ int git_push_new(git_push **out, git_remote *remote)
 		return -1;
 	}
 
+	if (git_vector_init(&p->updates, 0, NULL) < 0) {
+		git_vector_free(&p->status);
+		git_vector_free(&p->specs);
+		git__free(p);
+		return -1;
+	}
+
 	*out = p;
 	return 0;
 }
@@ -70,36 +77,12 @@ int git_push_set_options(git_push *push, const git_push_options *opts)
 	return 0;
 }
 
-int git_push_set_callbacks(
-	git_push *push,
-	git_packbuilder_progress pack_progress_cb,
-	void *pack_progress_cb_payload,
-	git_push_transfer_progress transfer_progress_cb,
-	void *transfer_progress_cb_payload)
-{
-	if (!push)
-		return -1;
-
-	push->pack_progress_cb = pack_progress_cb;
-	push->pack_progress_cb_payload = pack_progress_cb_payload;
-
-	push->transfer_progress_cb = transfer_progress_cb;
-	push->transfer_progress_cb_payload = transfer_progress_cb_payload;
-
-	return 0;
-}
-
 static void free_refspec(push_spec *spec)
 {
 	if (spec == NULL)
 		return;
 
-	if (spec->lref)
-		git__free(spec->lref);
-
-	if (spec->rref)
-		git__free(spec->rref);
-
+	git_refspec__free(&spec->refspec);
 	git__free(spec);
 }
 
@@ -134,46 +117,24 @@ static int check_lref(git_push *push, char *ref)
 static int parse_refspec(git_push *push, push_spec **spec, const char *str)
 {
 	push_spec *s;
-	char *delim;
 
 	*spec = NULL;
 
 	s = git__calloc(1, sizeof(*s));
 	GITERR_CHECK_ALLOC(s);
 
-	if (str[0] == '+') {
-		s->force = true;
-		str++;
-	}
-
-	delim = strchr(str, ':');
-	if (delim == NULL) {
-		s->lref = git__strdup(str);
-		if (!s->lref || check_lref(push, s->lref) < 0)
-			goto on_error;
-	} else {
-		if (delim - str) {
-			s->lref = git__strndup(str, delim - str);
-			if (!s->lref || check_lref(push, s->lref) < 0)
-				goto on_error;
-		}
-
-		if (strlen(delim + 1)) {
-			s->rref = git__strdup(delim + 1);
-			if (!s->rref || check_rref(s->rref) < 0)
-				goto on_error;
-		}
-	}
-
-	if (!s->lref && !s->rref)
+	if (git_refspec__parse(&s->refspec, str, false) < 0) {
+		giterr_set(GITERR_INVALID, "invalid refspec %s", str);
 		goto on_error;
-
-	/* If rref is ommitted, use the same ref name as lref */
-	if (!s->rref) {
-		s->rref = git__strdup(s->lref);
-		if (!s->rref || check_rref(s->rref) < 0)
-			goto on_error;
 	}
+
+	if (s->refspec.src && s->refspec.src[0] != '\0' &&
+	    check_lref(push, s->refspec.src) < 0) {
+		goto on_error;
+	}
+
+	if (check_rref(s->refspec.dst) < 0)
+		goto on_error;
 
 	*spec = s;
 	return 0;
@@ -194,10 +155,7 @@ int git_push_add_refspec(git_push *push, const char *refspec)
 	return 0;
 }
 
-int git_push_update_tips(
-		git_push *push,
-		const git_signature *signature,
-		const char *reflog_message)
+int git_push_update_tips(git_push *push, const git_remote_callbacks *callbacks)
 {
 	git_buf remote_ref_name = GIT_BUF_INIT;
 	size_t i, j;
@@ -210,6 +168,10 @@ int git_push_update_tips(
 	git_vector_foreach(&push->status, i, status) {
 		int fire_callback = 1;
 
+		/* Skip unsuccessful updates which have non-empty messages */
+		if (status->msg)
+			continue;
+
 		/* Find the corresponding remote ref */
 		fetch_spec = git_remote__matching_refspec(push->remote, status->ref);
 		if (!fetch_spec)
@@ -220,7 +182,7 @@ int git_push_update_tips(
 
 		/* Find matching  push ref spec */
 		git_vector_foreach(&push->specs, j, push_spec) {
-			if (!strcmp(push_spec->rref, status->ref))
+			if (!strcmp(push_spec->refspec.dst, status->ref))
 				break;
 		}
 
@@ -228,21 +190,18 @@ int git_push_update_tips(
 		if (j == push->specs.length)
 			continue;
 
-		/* If this ref update was successful (ok, not ng), it will have an empty message */
-		if (status->msg == NULL) {
-			/* Update the remote ref */
-			if (git_oid_iszero(&push_spec->loid)) {
-				error = git_reference_lookup(&remote_ref, push->remote->repo, git_buf_cstr(&remote_ref_name));
+		/* Update the remote ref */
+		if (git_oid_iszero(&push_spec->loid)) {
+			error = git_reference_lookup(&remote_ref, push->remote->repo, git_buf_cstr(&remote_ref_name));
 
-				if (error >= 0) {
-					error = git_reference_delete(remote_ref);
-					git_reference_free(remote_ref);
-				}
-			} else {
-				error = git_reference_create(NULL, push->remote->repo,
-							git_buf_cstr(&remote_ref_name), &push_spec->loid, 1, signature,
-							reflog_message ? reflog_message : "update by push");
+			if (error >= 0) {
+				error = git_reference_delete(remote_ref);
+				git_reference_free(remote_ref);
 			}
+		} else {
+			error = git_reference_create(NULL, push->remote->repo,
+						git_buf_cstr(&remote_ref_name), &push_spec->loid, 1,
+						"update by push");
 		}
 
 		if (error < 0) {
@@ -253,9 +212,9 @@ int git_push_update_tips(
 			fire_callback = 0;
 		}
 
-		if (fire_callback && push->remote->callbacks.update_tips) {
-			error = push->remote->callbacks.update_tips(git_buf_cstr(&remote_ref_name),
-						&push_spec->roid, &push_spec->loid, push->remote->callbacks.payload);
+		if (fire_callback && callbacks && callbacks->update_tips) {
+			error = callbacks->update_tips(git_buf_cstr(&remote_ref_name),
+						&push_spec->roid, &push_spec->loid, callbacks->payload);
 
 			if (error < 0)
 				goto on_error;
@@ -353,14 +312,15 @@ static int revwalk(git_vector *commits, git_push *push)
 		} else if (git_revwalk_push(rw, &spec->loid) < 0)
 			goto on_error;
 
-		if (!spec->force) {
+		if (!spec->refspec.force) {
 			git_oid base;
 
 			if (git_oid_iszero(&spec->roid))
 				continue;
 
 			if (!git_odb_exists(push->repo->_odb, &spec->roid)) {
-				giterr_set(GITERR_REFERENCE, "Cannot push missing reference");
+				giterr_set(GITERR_REFERENCE, 
+					"Cannot push because a reference that you are trying to update on the remote contains commits that are not present locally.");
 				error = GIT_ENONFASTFORWARD;
 				goto on_error;
 			}
@@ -562,6 +522,23 @@ on_error:
 	return error;
 }
 
+static int add_update(git_push *push, push_spec *spec)
+{
+	git_push_update *u = git__calloc(1, sizeof(git_push_update));
+	GITERR_CHECK_ALLOC(u);
+
+	u->src_refname = git__strdup(spec->refspec.src);
+	GITERR_CHECK_ALLOC(u->src_refname);
+
+	u->dst_refname = git__strdup(spec->refspec.dst);
+	GITERR_CHECK_ALLOC(u->dst_refname);
+
+	git_oid_cpy(&u->src, &spec->roid);
+	git_oid_cpy(&u->dst, &spec->loid);
+
+	return git_vector_insert(&push->updates, u);
+}
+
 static int calculate_work(git_push *push)
 {
 	git_remote_head *head;
@@ -571,30 +548,31 @@ static int calculate_work(git_push *push)
 	/* Update local and remote oids*/
 
 	git_vector_foreach(&push->specs, i, spec) {
-		if (spec->lref) {
+		if (spec->refspec.src && spec->refspec.src[0]!= '\0') {
 			/* This is a create or update.  Local ref must exist. */
 			if (git_reference_name_to_id(
-					&spec->loid, push->repo, spec->lref) < 0) {
-				giterr_set(GITERR_REFERENCE, "No such reference '%s'", spec->lref);
+					&spec->loid, push->repo, spec->refspec.src) < 0) {
+				giterr_set(GITERR_REFERENCE, "No such reference '%s'", spec->refspec.src);
 				return -1;
 			}
 		}
 
-		if (spec->rref) {
-			/* Remote ref may or may not (e.g. during create) already exist. */
-			git_vector_foreach(&push->remote->refs, j, head) {
-				if (!strcmp(spec->rref, head->name)) {
-					git_oid_cpy(&spec->roid, &head->oid);
-					break;
-				}
+		/* Remote ref may or may not (e.g. during create) already exist. */
+		git_vector_foreach(&push->remote->refs, j, head) {
+			if (!strcmp(spec->refspec.dst, head->name)) {
+				git_oid_cpy(&spec->roid, &head->oid);
+				break;
 			}
 		}
+
+		if (add_update(push, spec) < 0)
+			return -1;
 	}
 
 	return 0;
 }
 
-static int do_push(git_push *push)
+static int do_push(git_push *push, const git_remote_callbacks *callbacks)
 {
 	int error = 0;
 	git_transport *transport = push->remote->transport;
@@ -616,13 +594,20 @@ static int do_push(git_push *push)
 
 	git_packbuilder_set_threads(push->pb, push->pb_parallelism);
 
-	if (push->pack_progress_cb)
-		if ((error = git_packbuilder_set_callbacks(push->pb, push->pack_progress_cb, push->pack_progress_cb_payload)) < 0)
+	if (callbacks && callbacks->pack_progress)
+		if ((error = git_packbuilder_set_callbacks(push->pb, callbacks->pack_progress, callbacks->payload)) < 0)
 			goto on_error;
 
-	if ((error = calculate_work(push)) < 0 ||
-		(error = queue_objects(push)) < 0 ||
-		(error = transport->push(transport, push)) < 0)
+	if ((error = calculate_work(push)) < 0)
+		goto on_error;
+
+	if (callbacks && callbacks->push_negotiation &&
+	    (error = callbacks->push_negotiation((const git_push_update **) push->updates.contents,
+					  push->updates.length, callbacks->payload)) < 0)
+	    goto on_error;
+
+	if ((error = queue_objects(push)) < 0 ||
+	    (error = transport->push(transport, push, callbacks)) < 0)
 		goto on_error;
 
 on_error:
@@ -648,24 +633,24 @@ static int filter_refs(git_remote *remote)
 	return 0;
 }
 
-int git_push_finish(git_push *push)
+int git_push_finish(git_push *push, const git_remote_callbacks *callbacks)
 {
 	int error;
 
 	if (!git_remote_connected(push->remote) &&
-		(error = git_remote_connect(push->remote, GIT_DIRECTION_PUSH)) < 0)
+	    (error = git_remote_connect(push->remote, GIT_DIRECTION_PUSH, callbacks)) < 0)
 		return error;
 
 	if ((error = filter_refs(push->remote)) < 0 ||
-		(error = do_push(push)) < 0)
+	    (error = do_push(push, callbacks)) < 0)
 		return error;
 
-	return 0;
-}
+	if (!push->unpack_ok) {
+		error = -1;
+		giterr_set(GITERR_NET, "unpacking the sent packfile failed on the remote");
+	}
 
-int git_push_unpack_ok(const git_push *push)
-{
-	return push->unpack_ok;
+	return error;
 }
 
 int git_push_status_foreach(git_push *push,
@@ -698,6 +683,7 @@ void git_push_free(git_push *push)
 {
 	push_spec *spec;
 	push_status *status;
+	git_push_update *update;
 	unsigned int i;
 
 	if (push == NULL)
@@ -712,6 +698,13 @@ void git_push_free(git_push *push)
 		git_push_status_free(status);
 	}
 	git_vector_free(&push->status);
+
+	git_vector_foreach(&push->updates, i, update) {
+		git__free(update->src_refname);
+		git__free(update->dst_refname);
+		git__free(update);
+	}
+	git_vector_free(&push->updates);
 
 	git__free(push);
 }

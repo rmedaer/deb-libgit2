@@ -55,15 +55,28 @@ typedef enum {
 	GIT_CONFIG_HIGHEST_LEVEL = -1,
 } git_config_level_t;
 
-typedef struct {
-	const char *name;
-	const char *value;
-	git_config_level_t level;
+/**
+ * An entry in a configuration file
+ */
+typedef struct git_config_entry {
+	const char *name; /**< Name of the entry (normalised) */
+	const char *value; /**< String value of the entry */
+	git_config_level_t level; /**< Which config file this was found in */
+	void (*free)(struct git_config_entry *entry); /**< Free function for this entry */
+	void *payload; /**< Opaque value for the free function. Do not read or write */
 } git_config_entry;
+
+/**
+ * Free a config entry
+ */
+GIT_EXTERN(void) git_config_entry_free(git_config_entry *);
 
 typedef int  (*git_config_foreach_cb)(const git_config_entry *, void *);
 typedef struct git_config_iterator git_config_iterator;
 
+/**
+ * Config var type
+ */
 typedef enum {
 	GIT_CVAR_FALSE = 0,
 	GIT_CVAR_TRUE = 1,
@@ -71,6 +84,9 @@ typedef enum {
 	GIT_CVAR_STRING
 } git_cvar_t;
 
+/**
+ * Mapping from config variables to values.
+ */
 typedef struct {
 	git_cvar_t cvar_type;
 	const char *str_match;
@@ -242,20 +258,6 @@ GIT_EXTERN(int) git_config_open_global(git_config **out, git_config *config);
  */
 GIT_EXTERN(int) git_config_snapshot(git_config **out, git_config *config);
 
-
-/**
- * Reload changed config files
- *
- * A config file may be changed on disk out from under the in-memory
- * config object.  This function causes us to look for files that have
- * been modified since we last loaded them and refresh the config with
- * the latest information.
- *
- * @param cfg The configuration to refresh
- * @return 0 or an error code
- */
-GIT_EXTERN(int) git_config_refresh(git_config *cfg);
-
 /**
  * Free the configuration and its associated memory and files
  *
@@ -266,16 +268,15 @@ GIT_EXTERN(void) git_config_free(git_config *cfg);
 /**
  * Get the git_config_entry of a config variable.
  *
- * The git_config_entry is owned by the config and should not be freed by the
- * user.
-
+ * Free the git_config_entry after use with `git_config_entry_free()`.
+ *
  * @param out pointer to the variable git_config_entry
  * @param cfg where to look for the variable
  * @param name the variable's name
  * @return 0 or an error code
  */
 GIT_EXTERN(int) git_config_get_entry(
-	const git_config_entry **out,
+	git_config_entry **out,
 	const git_config *cfg,
 	const char *name);
 
@@ -284,7 +285,7 @@ GIT_EXTERN(int) git_config_get_entry(
  *
  * All config files will be looked into, in the order of their
  * defined level. A higher level means a higher priority. The
- * first occurence of the variable will be returned here.
+ * first occurrence of the variable will be returned here.
  *
  * @param out pointer to the variable where the value should be stored
  * @param cfg where to look for the variable
@@ -325,22 +326,56 @@ GIT_EXTERN(int) git_config_get_int64(int64_t *out, const git_config *cfg, const 
 GIT_EXTERN(int) git_config_get_bool(int *out, const git_config *cfg, const char *name);
 
 /**
- * Get the value of a string config variable.
+ * Get the value of a path config variable.
  *
- * The string is owned by the variable and should not be freed by the
- * user. The pointer will be valid until the next operation on this
- * config object.
+ * A leading '~' will be expanded to the global search path (which
+ * defaults to the user's home directory but can be overridden via
+ * `git_libgit2_opts()`.
  *
  * All config files will be looked into, in the order of their
  * defined level. A higher level means a higher priority. The
  * first occurrence of the variable will be returned here.
  *
- * @param out pointer to the variable's value
+ * @param out the buffer in which to store the result
+ * @param cfg where to look for the variable
+ * @param name the variable's name
+ * @return 0 or an error code
+ */
+GIT_EXTERN(int) git_config_get_path(git_buf *out, const git_config *cfg, const char *name);
+
+/**
+ * Get the value of a string config variable.
+ *
+ * This function can only be used on snapshot config objects. The
+ * string is owned by the config and should not be freed by the
+ * user. The pointer will be valid until the config is freed.
+ *
+ * All config files will be looked into, in the order of their
+ * defined level. A higher level means a higher priority. The
+ * first occurrence of the variable will be returned here.
+ *
+ * @param out pointer to the string
  * @param cfg where to look for the variable
  * @param name the variable's name
  * @return 0 or an error code
  */
 GIT_EXTERN(int) git_config_get_string(const char **out, const git_config *cfg, const char *name);
+
+/**
+ * Get the value of a string config variable.
+ *
+ * The value of the config will be copied into the buffer.
+ *
+ * All config files will be looked into, in the order of their
+ * defined level. A higher level means a higher priority. The
+ * first occurrence of the variable will be returned here.
+ *
+ * @param out buffer in which to store the string
+ * @param cfg where to look for the variable
+ * @param name the variable's name
+ * @return 0 or an error code
+ */
+GIT_EXTERN(int) git_config_get_string_buf(git_buf *out, const git_config *cfg, const char *name);
 
 /**
  * Get each value of a multivar in a foreach callback
@@ -620,6 +655,20 @@ GIT_EXTERN(int) git_config_parse_int32(int32_t *out, const char *value);
  */
 GIT_EXTERN(int) git_config_parse_int64(int64_t *out, const char *value);
 
+/**
+ * Parse a string value as a path.
+ *
+ * A leading '~' will be expanded to the global search path (which
+ * defaults to the user's home directory but can be overridden via
+ * `git_libgit2_opts()`.
+ *
+ * If the value does not begin with a tilde, the input will be
+ * returned.
+ *
+ * @param out placae to store the result of parsing
+ * @param value the path to evaluate
+ */
+GIT_EXTERN(int) git_config_parse_path(git_buf *out, const char *value);
 
 /**
  * Perform an operation on each config variable in given config backend

@@ -196,6 +196,8 @@ GIT_EXTERN(int) git_repository_init(
  *        looking the "template_path" from the options if set, or the
  *        `init.templatedir` global config if not, or falling back on
  *        "/usr/share/git-core/templates" if it exists.
+ * * GIT_REPOSITORY_INIT_RELATIVE_GITLINK - If an alternate workdir is
+ *        specified, use relative paths for the gitdir and core.worktree.
  */
 typedef enum {
 	GIT_REPOSITORY_INIT_BARE              = (1u << 0),
@@ -204,6 +206,7 @@ typedef enum {
 	GIT_REPOSITORY_INIT_MKDIR             = (1u << 3),
 	GIT_REPOSITORY_INIT_MKPATH            = (1u << 4),
 	GIT_REPOSITORY_INIT_EXTERNAL_TEMPLATE = (1u << 5),
+	GIT_REPOSITORY_INIT_RELATIVE_GITLINK  = (1u << 6),
 } git_repository_init_flag_t;
 
 /**
@@ -339,8 +342,8 @@ GIT_EXTERN(int) git_repository_head_unborn(git_repository *repo);
 /**
  * Check if a repository is empty
  *
- * An empty repository has just been initialized and contains
- * no references.
+ * An empty repository has just been initialized and contains no references
+ * apart from HEAD, which must be pointing to the unborn master branch.
  *
  * @param repo Repo to test
  * @return 1 if the repository is empty, 0 if it isn't, error code
@@ -600,15 +603,11 @@ GIT_EXTERN(int) git_repository_hashfile(
  *
  * @param repo Repository pointer
  * @param refname Canonical name of the reference the HEAD should point at
- * @param signature The identity that will used to populate the reflog entry
- * @param log_message The one line long message to be appended to the reflog
  * @return 0 on success, or an error code
  */
 GIT_EXTERN(int) git_repository_set_head(
 	git_repository* repo,
-	const char* refname,
-	const git_signature *signature,
-	const char *log_message);
+	const char* refname);
 
 /**
  * Make the repository HEAD directly point to the Commit.
@@ -624,15 +623,27 @@ GIT_EXTERN(int) git_repository_set_head(
  *
  * @param repo Repository pointer
  * @param commitish Object id of the Commit the HEAD should point to
- * @param signature The identity that will used to populate the reflog entry
- * @param log_message The one line long message to be appended to the reflog
  * @return 0 on success, or an error code
  */
 GIT_EXTERN(int) git_repository_set_head_detached(
 	git_repository* repo,
-	const git_oid* commitish,
-	const git_signature *signature,
-	const char *log_message);
+	const git_oid* commitish);
+
+/**
+ * Make the repository HEAD directly point to the Commit.
+ *
+ * This behaves like `git_repository_set_head_detached()` but takes an
+ * annotated commit, which lets you specify which extended sha syntax
+ * string was specified by a user, allowing for more exact reflog
+ * messages.
+ *
+ * See the documentation for `git_repository_set_head_detached()`.
+ *
+ * @see git_repository_set_head_detached
+ */
+GIT_EXTERN(int) git_repository_set_head_detached_from_annotated(
+	git_repository *repo,
+	const git_annotated_commit *commitish);
 
 /**
  * Detach the HEAD.
@@ -648,21 +659,23 @@ GIT_EXTERN(int) git_repository_set_head_detached(
  * Otherwise, the HEAD will be detached and point to the peeled Commit.
  *
  * @param repo Repository pointer
- * @param signature The identity that will used to populate the reflog entry
- * @param reflog_message The one line long message to be appended to the reflog
  * @return 0 on success, GIT_EUNBORNBRANCH when HEAD points to a non existing
  * branch or an error code
  */
 GIT_EXTERN(int) git_repository_detach_head(
-	git_repository* repo,
-	const git_signature *signature,
-	const char *reflog_message);
+	git_repository* repo);
 
+/**
+ * Repository state
+ *
+ * These values represent possible states for the repository to be in,
+ * based on the current operation which is ongoing.
+ */
 typedef enum {
 	GIT_REPOSITORY_STATE_NONE,
 	GIT_REPOSITORY_STATE_MERGE,
 	GIT_REPOSITORY_STATE_REVERT,
-	GIT_REPOSITORY_STATE_CHERRY_PICK,
+	GIT_REPOSITORY_STATE_CHERRYPICK,
 	GIT_REPOSITORY_STATE_BISECT,
 	GIT_REPOSITORY_STATE_REBASE,
 	GIT_REPOSITORY_STATE_REBASE_INTERACTIVE,
@@ -710,6 +723,31 @@ GIT_EXTERN(const char *) git_repository_get_namespace(git_repository *repo);
  * @return 1 if shallow, zero if not
  */
 GIT_EXTERN(int) git_repository_is_shallow(git_repository *repo);
+
+/**
+ * Retrieve the configured identity to use for reflogs
+ *
+ * The memory is owned by the repository and must not be freed by the
+ * user.
+ *
+ * @param name where to store the pointer to the name
+ * @param email where to store the pointer to the email
+ * @param repo the repository
+ */
+GIT_EXTERN(int) git_repository_ident(const char **name, const char **email, const git_repository *repo);
+
+/**
+ * Set the identity to be used for writing reflogs
+ *
+ * If both are set, this name and email will be used to write to the
+ * reflog. Pass NULL to unset. When unset, the identity will be taken
+ * from the repository's configuration.
+ *
+ * @param repo the repository to configure
+ * @param name the name to use for the reflog entries
+ * @param name the email to use for the reflog entries
+ */
+GIT_EXTERN(int) git_repository_set_ident(git_repository *repo, const char *name, const char *email);
 
 /** @} */
 GIT_END_DECL

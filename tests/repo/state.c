@@ -37,7 +37,7 @@ void test_repo_state__none_with_HEAD_attached(void)
 
 void test_repo_state__none_with_HEAD_detached(void)
 {
-	cl_git_pass(git_repository_detach_head(_repo, NULL, NULL));
+	cl_git_pass(git_repository_detach_head(_repo));
 	assert_repo_state(GIT_REPOSITORY_STATE_NONE);
 }
 
@@ -59,8 +59,8 @@ void test_repo_state__revert(void)
 
 void test_repo_state__cherry_pick(void)
 {
-	setup_simple_state(GIT_CHERRY_PICK_HEAD_FILE);
-	assert_repo_state(GIT_REPOSITORY_STATE_CHERRY_PICK);
+	setup_simple_state(GIT_CHERRYPICK_HEAD_FILE);
+	assert_repo_state(GIT_REPOSITORY_STATE_CHERRYPICK);
 	cl_git_pass(git_repository_state_cleanup(_repo));
 	assert_repo_state(GIT_REPOSITORY_STATE_NONE);
 }

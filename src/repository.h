@@ -14,6 +14,7 @@
 #include "git2/object.h"
 #include "git2/config.h"
 
+#include "array.h"
 #include "cache.h"
 #include "refs.h"
 #include "buffer.h"
@@ -26,6 +27,9 @@
 #define GIT_DIR DOT_GIT "/"
 #define GIT_DIR_MODE 0755
 #define GIT_BARE_DIR_MODE 0777
+
+/* Default DOS-compatible 8.3 "short name" for a git repository, "GIT~1" */
+#define GIT_DIR_SHORTNAME "GIT~1"
 
 /** Cvar cache identifiers */
 typedef enum {
@@ -40,6 +44,8 @@ typedef enum {
 	GIT_CVAR_PRECOMPOSE,    /* core.precomposeunicode */
 	GIT_CVAR_SAFE_CRLF,		/* core.safecrlf */
 	GIT_CVAR_LOGALLREFUPDATES, /* core.logallrefupdates */
+	GIT_CVAR_PROTECTHFS,    /* core.protectHFS */
+	GIT_CVAR_PROTECTNTFS,   /* core.protectNTFS */
 	GIT_CVAR_CACHE_MAX
 } git_cvar_cached;
 
@@ -96,6 +102,10 @@ typedef enum {
 	/* core.logallrefupdates */
 	GIT_LOGALLREFUPDATES_UNSET = 2,
 	GIT_LOGALLREFUPDATES_DEFAULT = GIT_LOGALLREFUPDATES_UNSET,
+	/* core.protectHFS */
+	GIT_PROTECTHFS_DEFAULT = GIT_CVAR_FALSE,
+	/* core.protectNTFS */
+	GIT_PROTECTNTFS_DEFAULT = GIT_CVAR_FALSE,
 } git_cvar_value;
 
 /* internal repository init flags */
@@ -111,18 +121,26 @@ struct git_repository {
 	git_refdb *_refdb;
 	git_config *_config;
 	git_index *_index;
-	git_submodule_cache *_submodules;
 
 	git_cache objects;
 	git_attr_cache *attrcache;
 	git_diff_driver_registry *diff_drivers;
 
 	char *path_repository;
+	char *path_gitlink;
 	char *workdir;
 	char *namespace;
 
+	char *ident_name;
+	char *ident_email;
+
+	git_array_t(git_buf) reserved_names;
+
 	unsigned is_bare:1;
+
 	unsigned int lru_counter;
+
+	git_atomic attr_session_key;
 
 	git_cvar_value cvar_cache[GIT_CVAR_CACHE_MAX];
 };
@@ -150,7 +168,7 @@ int git_repository_index__weakptr(git_index **out, git_repository *repo);
  * CVAR cache
  *
  * Efficient access to the most used config variables of a repository.
- * The cache is cleared everytime the config backend is replaced.
+ * The cache is cleared every time the config backend is replaced.
  */
 int git_repository__cvar(int *out, git_repository *repo, git_cvar_cached cvar);
 void git_repository__cvar_cache_clear(git_repository *repo);
@@ -170,6 +188,28 @@ GIT_INLINE(int) git_repository__ensure_not_bare(
 	return GIT_EBAREREPO;
 }
 
+int git_repository__set_orig_head(git_repository *repo, const git_oid *orig_head);
+
 int git_repository__cleanup_files(git_repository *repo, const char *files[], size_t files_len);
+
+/* The default "reserved names" for a repository */
+extern git_buf git_repository__reserved_names_win32[];
+extern size_t git_repository__reserved_names_win32_len;
+
+extern git_buf git_repository__reserved_names_posix[];
+extern size_t git_repository__reserved_names_posix_len;
+
+/*
+ * Gets any "reserved names" in the repository.  This will return paths
+ * that should not be allowed in the repository (like ".git") to avoid
+ * conflicting with the repository path, or with alternate mechanisms to
+ * the repository path (eg, "GIT~1").  Every attempt will be made to look
+ * up all possible reserved names - if there was a conflict for the shortname
+ * GIT~1, for example, this function will try to look up the alternate
+ * shortname.  If that fails, this function returns false, but out and outlen
+ * will still be populated with good defaults.
+ */
+bool git_repository__reserved_names(
+	git_buf **out, size_t *outlen, git_repository *repo, bool include_ntfs);
 
 #endif

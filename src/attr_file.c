@@ -96,6 +96,7 @@ static int attr_file_oid_from_index(
 int git_attr_file__load(
 	git_attr_file **out,
 	git_repository *repo,
+	git_attr_session *attr_session,
 	git_attr_file_entry *entry,
 	git_attr_file_source source,
 	git_attr_file_parser parser)
@@ -103,9 +104,9 @@ int git_attr_file__load(
 	int error = 0;
 	git_blob *blob = NULL;
 	git_buf content = GIT_BUF_INIT;
-	const char *data = NULL;
 	git_attr_file *file;
 	struct stat st;
+	bool nonexistent = false;
 
 	*out = NULL;
 
@@ -120,30 +121,25 @@ int git_attr_file__load(
 			(error = git_blob_lookup(&blob, repo, &id)) < 0)
 			return error;
 
-		data = git_blob_rawcontent(blob);
+		/* Do not assume that data straight from the ODB is NULL-terminated;
+		 * copy the contents of a file to a buffer to work on */
+		git_buf_put(&content, git_blob_rawcontent(blob), git_blob_rawsize(blob));
 		break;
 	}
 	case GIT_ATTR_FILE__FROM_FILE: {
 		int fd;
 
-		if (p_stat(entry->fullpath, &st) < 0)
-			return git_path_set_error(errno, entry->fullpath, "stat");
-		if (S_ISDIR(st.st_mode))
-			return GIT_ENOTFOUND;
-
-		/* For open or read errors, return ENOTFOUND to skip item */
+		/* For open or read errors, pretend that we got ENOTFOUND. */
 		/* TODO: issue warning when warning API is available */
 
-		if ((fd = git_futils_open_ro(entry->fullpath)) < 0)
-			return GIT_ENOTFOUND;
+		if (p_stat(entry->fullpath, &st) < 0 ||
+			S_ISDIR(st.st_mode) ||
+			(fd = git_futils_open_ro(entry->fullpath)) < 0 ||
+			(error = git_futils_readbuffer_fd(&content, fd, (size_t)st.st_size)) < 0)
+			nonexistent = true;
+		else
+			p_close(fd);
 
-		error = git_futils_readbuffer_fd(&content, fd, (size_t)st.st_size);
-		p_close(fd);
-
-		if (error < 0)
-			return GIT_ENOTFOUND;
-
-		data = content.ptr;
 		break;
 	}
 	default:
@@ -154,13 +150,21 @@ int git_attr_file__load(
 	if ((error = git_attr_file__new(&file, entry, source)) < 0)
 		goto cleanup;
 
-	if (parser && (error = parser(repo, file, data)) < 0) {
+	/* store the key of the attr_reader; don't bother with cache
+	 * invalidation during the same attr reader session.
+	 */
+	if (attr_session)
+		file->session_key = attr_session->key;
+
+	if (parser && (error = parser(repo, file, git_buf_cstr(&content))) < 0) {
 		git_attr_file__free(file);
 		goto cleanup;
 	}
 
-	/* write cache breaker */
-	if (source == GIT_ATTR_FILE__FROM_INDEX)
+	/* write cache breakers */
+	if (nonexistent)
+		file->nonexistent = 1;
+	else if (source == GIT_ATTR_FILE__FROM_INDEX)
 		git_oid_cpy(&file->cache_data.oid, git_blob_id(blob));
 	else if (source == GIT_ATTR_FILE__FROM_FILE)
 		git_futils_filestamp_set_from_stat(&file->cache_data.stamp, &st);
@@ -175,9 +179,20 @@ cleanup:
 	return error;
 }
 
-int git_attr_file__out_of_date(git_repository *repo, git_attr_file *file)
+int git_attr_file__out_of_date(
+	git_repository *repo,
+	git_attr_session *attr_session,
+	git_attr_file *file)
 {
 	if (!file)
+		return 1;
+
+	/* we are never out of date if we just created this data in the same
+	 * attr_session; otherwise, nonexistent files must be invalidated
+	 */
+	if (attr_session && attr_session->key == file->session_key)
+		return 0;
+	else if (file->nonexistent)
 		return 1;
 
 	switch (file->source) {
@@ -344,8 +359,26 @@ bool git_attr_fnmatch__match(
 	git_attr_fnmatch *match,
 	git_attr_path *path)
 {
+	const char *relpath = path->path;
 	const char *filename;
 	int flags = 0;
+
+	/*
+	 * If the rule was generated in a subdirectory, we must only
+	 * use it for paths inside that directory. We can thus return
+	 * a non-match if the prefixes don't match.
+	 */
+	if (match->containing_dir) {
+		if (match->flags & GIT_ATTR_FNMATCH_ICASE) {
+			if (git__strncasecmp(path->path, match->containing_dir, match->containing_dir_length))
+				return 0;
+		} else {
+			if (git__prefixcmp(path->path, match->containing_dir))
+				return 0;
+		}
+
+		relpath += match->containing_dir_length;
+	}
 
 	if (match->flags & GIT_ATTR_FNMATCH_ICASE)
 		flags |= FNM_CASEFOLD;
@@ -353,7 +386,7 @@ bool git_attr_fnmatch__match(
 		flags |= FNM_LEADING_DIR;
 
 	if (match->flags & GIT_ATTR_FNMATCH_FULLPATH) {
-		filename = path->path;
+		filename = relpath;
 		flags |= FNM_PATHNAME;
 	} else {
 		filename = path->basename;
@@ -363,19 +396,36 @@ bool git_attr_fnmatch__match(
 	}
 
 	if ((match->flags & GIT_ATTR_FNMATCH_DIRECTORY) && !path->is_dir) {
-		int matchval;
+		bool samename;
 
 		/* for attribute checks or root ignore checks, fail match */
 		if (!(match->flags & GIT_ATTR_FNMATCH_IGNORE) ||
 			path->basename == path->path)
 			return false;
 
-		/* for ignore checks, use container of current item for check */
-		path->basename[-1] = '\0';
 		flags |= FNM_LEADING_DIR;
-		matchval = p_fnmatch(match->pattern, path->path, flags);
-		path->basename[-1] = '/';
-		return (matchval != FNM_NOMATCH);
+
+		/* fail match if this is a file with same name as ignored folder */
+		samename = (match->flags & GIT_ATTR_FNMATCH_ICASE) ?
+			!strcasecmp(match->pattern, relpath) :
+			!strcmp(match->pattern, relpath);
+
+		if (samename)
+			return false;
+
+		return (p_fnmatch(match->pattern, relpath, flags) != FNM_NOMATCH);
+	}
+
+	/* if path is a directory prefix of a negated pattern, then match */
+	if ((match->flags & GIT_ATTR_FNMATCH_NEGATIVE) && path->is_dir) {
+		size_t pathlen = strlen(relpath);
+		bool prefixed = (pathlen <= match->length) &&
+			((match->flags & GIT_ATTR_FNMATCH_ICASE) ?
+			!strncasecmp(match->pattern, relpath, pathlen) :
+			!strncmp(match->pattern, relpath, pathlen));
+
+		if (prefixed && git_path_at_end_of_segment(&match->pattern[pathlen]))
+			return true;
 	}
 
 	return (p_fnmatch(match->pattern, filename, flags) != FNM_NOMATCH);
@@ -408,7 +458,7 @@ git_attr_assignment *git_attr_rule__lookup_assignment(
 }
 
 int git_attr_path__init(
-	git_attr_path *info, const char *path, const char *base)
+	git_attr_path *info, const char *path, const char *base, git_dir_flag dir_flag)
 {
 	ssize_t root;
 
@@ -439,7 +489,21 @@ int git_attr_path__init(
 	if (!info->basename || !*info->basename)
 		info->basename = info->path;
 
-	info->is_dir = (int)git_path_isdir(info->full.ptr);
+	switch (dir_flag)
+	{
+	case GIT_DIR_FLAG_FALSE:
+		info->is_dir = 0;
+		break;
+
+	case GIT_DIR_FLAG_TRUE:
+		info->is_dir = 1;
+		break;
+
+	case GIT_DIR_FLAG_UNKNOWN:
+	default:
+		info->is_dir = (int)git_path_isdir(info->full.ptr);
+		break;
+	}
 
 	return 0;
 }
@@ -522,7 +586,8 @@ int git_attr_fnmatch__parse(
 	}
 
 	if (*pattern == '!' && (spec->flags & GIT_ATTR_FNMATCH_ALLOWNEG) != 0) {
-		spec->flags = spec->flags | GIT_ATTR_FNMATCH_NEGATIVE;
+		spec->flags = spec->flags |
+			GIT_ATTR_FNMATCH_NEGATIVE | GIT_ATTR_FNMATCH_LEADINGDIR;
 		pattern++;
 	}
 
@@ -530,7 +595,7 @@ int git_attr_fnmatch__parse(
 	for (scan = pattern; *scan != '\0'; ++scan) {
 		/* scan until (non-escaped) white space */
 		if (git__isspace(*scan) && *(scan - 1) != '\\') {
-			if (!allow_space || (*scan != ' ' && *scan != '\t'))
+			if (!allow_space || (*scan != ' ' && *scan != '\t' && *scan != '\r'))
 				break;
 		}
 
@@ -551,6 +616,15 @@ int git_attr_fnmatch__parse(
 	if ((spec->length = scan - pattern) == 0)
 		return GIT_ENOTFOUND;
 
+	/*
+	 * Remove one trailing \r in case this is a CRLF delimited
+	 * file, in the case of Icon\r\r\n, we still leave the first
+	 * \r there to match against.
+	 */
+	if (pattern[spec->length - 1] == '\r')
+		if (--spec->length == 0)
+			return GIT_ENOTFOUND;
+
 	if (pattern[spec->length - 1] == '/') {
 		spec->length--;
 		spec->flags = spec->flags | GIT_ATTR_FNMATCH_DIRECTORY;
@@ -566,27 +640,18 @@ int git_attr_fnmatch__parse(
 		/* leave FULLPATH match on, however */
 	}
 
-	if ((spec->flags & GIT_ATTR_FNMATCH_FULLPATH) != 0 &&
-		context != NULL && git_path_root(pattern) < 0)
-	{
-		/* use context path minus the trailing filename */
+	if (context) {
 		char *slash = strrchr(context, '/');
-		size_t contextlen = slash ? slash - context + 1 : 0;
-
-		/* given an unrooted fullpath match from a file inside a repo,
-		 * prefix the pattern with the relative directory of the source file
-		 */
-		spec->pattern = git_pool_malloc(
-			pool, (uint32_t)(contextlen + spec->length + 1));
-		if (spec->pattern) {
-			memcpy(spec->pattern, context, contextlen);
-			memcpy(spec->pattern + contextlen, pattern, spec->length);
-			spec->length += contextlen;
-			spec->pattern[spec->length] = '\0';
+		size_t len;
+		if (slash) {
+			/* include the slash for easier matching */
+			len = slash - context + 1;
+			spec->containing_dir = git_pool_strndup(pool, context, len);
+			spec->containing_dir_length = len;
 		}
-	} else {
-		spec->pattern = git_pool_strndup(pool, pattern, spec->length);
 	}
+
+	spec->pattern = git_pool_strndup(pool, pattern, spec->length);
 
 	if (!spec->pattern) {
 		*base = git__next_line(pattern);
@@ -733,8 +798,10 @@ int git_attr_assignment__parse(
 
 					error = git_vector_insert_sorted(
 						assigns, massign, &merge_assignments);
-					if (error < 0 && error != GIT_EEXISTS)
+					if (error < 0 && error != GIT_EEXISTS) {
+						git_attr_assignment__free(assign);
 						return error;
+					}
 				}
 			}
 		}
@@ -781,3 +848,22 @@ void git_attr_rule__free(git_attr_rule *rule)
 	git__free(rule);
 }
 
+int git_attr_session__init(git_attr_session *session, git_repository *repo)
+{
+	assert(repo);
+
+	session->key = git_atomic_inc(&repo->attr_session_key);
+
+	return 0;
+}
+
+void git_attr_session__free(git_attr_session *session)
+{
+	if (!session)
+		return;
+
+	git_buf_free(&session->sysdir);
+	git_buf_free(&session->tmp);
+
+	memset(session, 0, sizeof(git_attr_session));
+}

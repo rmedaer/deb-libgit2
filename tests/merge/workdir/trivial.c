@@ -33,26 +33,26 @@ static int merge_trivial(const char *ours, const char *theirs)
 	git_buf branch_buf = GIT_BUF_INIT;
 	git_checkout_options checkout_opts = GIT_CHECKOUT_OPTIONS_INIT;
 	git_reference *our_ref, *their_ref;
-	git_merge_head *their_heads[1];
+	git_annotated_commit *their_heads[1];
 
 	checkout_opts.checkout_strategy = GIT_CHECKOUT_FORCE;
 
 	git_buf_printf(&branch_buf, "%s%s", GIT_REFS_HEADS_DIR, ours);
-	cl_git_pass(git_reference_symbolic_create(&our_ref, repo, "HEAD", branch_buf.ptr, 1, NULL, NULL));
+	cl_git_pass(git_reference_symbolic_create(&our_ref, repo, "HEAD", branch_buf.ptr, 1, NULL));
 
 	cl_git_pass(git_checkout_head(repo, &checkout_opts));
 
 	git_buf_clear(&branch_buf);
 	git_buf_printf(&branch_buf, "%s%s", GIT_REFS_HEADS_DIR, theirs);
 	cl_git_pass(git_reference_lookup(&their_ref, repo, branch_buf.ptr));
-	cl_git_pass(git_merge_head_from_ref(&their_heads[0], repo, their_ref));
+	cl_git_pass(git_annotated_commit_from_ref(&their_heads[0], repo, their_ref));
 
-	cl_git_pass(git_merge(repo, (const git_merge_head **)their_heads, 1, NULL, NULL));
+	cl_git_pass(git_merge(repo, (const git_annotated_commit **)their_heads, 1, NULL, NULL));
 
 	git_buf_free(&branch_buf);
 	git_reference_free(our_ref);
 	git_reference_free(their_ref);
-	git_merge_head_free(their_heads[0]);
+	git_annotated_commit_free(their_heads[0]);
 
 	return 0;
 }
@@ -66,7 +66,7 @@ static size_t merge_trivial_conflict_entrycount(void)
 	for (i = 0; i < git_index_entrycount(repo_index); i++) {
 		cl_assert(entry = git_index_get_byindex(repo_index, i));
 
-		if (git_index_entry_stage(entry) > 0)
+		if (git_index_entry_is_conflict(entry))
 			count++;
 	}
 

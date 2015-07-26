@@ -148,7 +148,7 @@ size_t git_reflog_entrycount(git_reflog *reflog)
 	return reflog->entries.length;
 }
 
-const git_reflog_entry * git_reflog_entry_byindex(git_reflog *reflog, size_t idx)
+const git_reflog_entry * git_reflog_entry_byindex(const git_reflog *reflog, size_t idx)
 {
 	assert(reflog);
 
@@ -193,7 +193,7 @@ int git_reflog_drop(git_reflog *reflog, size_t idx, int rewrite_previous_entry)
 	entry = (git_reflog_entry *)git_reflog_entry_byindex(reflog, idx);
 
 	if (entry == NULL) {
-		giterr_set(GITERR_REFERENCE, "No reflog entry at index "PRIuZ, idx);
+		giterr_set(GITERR_REFERENCE, "No reflog entry at index %"PRIuZ, idx);
 		return GIT_ENOTFOUND;
 	}
 

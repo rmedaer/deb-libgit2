@@ -18,7 +18,7 @@ void cl_git_mkfile(const char *filename, const char *content)
 	int fd;
 
 	fd = p_creat(filename, 0666);
-	cl_assert(fd != 0);
+	cl_assert(fd != -1);
 
 	if (content) {
 		cl_must_pass(p_write(fd, content, strlen(content)));
@@ -53,6 +53,11 @@ void cl_git_rewritefile(const char *path, const char *content)
 	cl_git_write2file(path, content, 0, O_WRONLY | O_CREAT | O_TRUNC, 0644);
 }
 
+void cl_git_rmfile(const char *filename)
+{
+	cl_must_pass(p_unlink(filename));
+}
+
 #ifdef GIT_WIN32
 
 #include "win32/utf-conv.h"
@@ -80,7 +85,7 @@ char *cl_getenv(const char *name)
 
 int cl_setenv(const char *name, const char *value)
 {
-	wchar_t *wide_name, *wide_value;
+	wchar_t *wide_name, *wide_value = NULL;
 
 	cl_assert(git__utf8_to_16_alloc(&wide_name, name) >= 0);
 
@@ -95,6 +100,8 @@ int cl_setenv(const char *name, const char *value)
 		SetEnvironmentVariableW(wide_name, NULL);
 	}
 
+	git__free(wide_name);
+	git__free(wide_value);
 	return 0;
 }
 
@@ -186,6 +193,14 @@ git_repository *cl_git_sandbox_init(const char *sandbox)
 
 	/* Adjust configs after copying to new filesystem */
 	cl_git_pass(git_repository_reinit_filesystem(_cl_repo, 0));
+
+	return _cl_repo;
+}
+
+git_repository *cl_git_sandbox_init_new(const char *sandbox)
+{
+	cl_git_pass(git_repository_init(&_cl_repo, sandbox, false));
+	_cl_sandbox = sandbox;
 
 	return _cl_repo;
 }
@@ -471,7 +486,7 @@ void clar__assert_equal_file(
 				buf, sizeof(buf), "file content mismatch at byte %d",
 				(int)(total_bytes + pos));
 			p_close(fd);
-			clar__fail(file, line, buf, path, 1);
+			clar__fail(file, line, path, buf, 1);
 		}
 
 		expected_data += bytes;
@@ -530,4 +545,26 @@ void cl_sandbox_set_search_path_defaults(void)
 	git_libgit2_opts(
 		GIT_OPT_SET_SEARCH_PATH, GIT_CONFIG_LEVEL_SYSTEM, sandbox_path);
 }
+
+#ifdef GIT_WIN32
+bool cl_sandbox_supports_8dot3(void)
+{
+	git_buf longpath = GIT_BUF_INIT;
+	char *shortname;
+	bool supported;
+
+	cl_git_pass(
+		git_buf_joinpath(&longpath, clar_sandbox_path(), "longer_than_8dot3"));
+
+	cl_git_write2file(longpath.ptr, "", 0, O_RDWR|O_CREAT, 0666);
+	shortname = git_win32_path_8dot3_name(longpath.ptr);
+
+	supported = (shortname != NULL);
+
+	git__free(shortname);
+	git_buf_free(&longpath);
+
+	return supported;
+}
+#endif
 

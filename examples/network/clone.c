@@ -18,14 +18,20 @@ typedef struct progress_data {
 
 static void print_progress(const progress_data *pd)
 {
-	int network_percent = (100*pd->fetch_progress.received_objects) / pd->fetch_progress.total_objects;
-	int index_percent = (100*pd->fetch_progress.indexed_objects) / pd->fetch_progress.total_objects;
+	int network_percent = pd->fetch_progress.total_objects > 0 ?
+		(100*pd->fetch_progress.received_objects) / pd->fetch_progress.total_objects :
+		0;
+	int index_percent = pd->fetch_progress.total_objects > 0 ?
+		(100*pd->fetch_progress.indexed_objects) / pd->fetch_progress.total_objects :
+		0;
+
 	int checkout_percent = pd->total_steps > 0
 		? (100 * pd->completed_steps) / pd->total_steps
 		: 0;
 	int kbytes = pd->fetch_progress.received_bytes / 1024;
 
-	if (pd->fetch_progress.received_objects == pd->fetch_progress.total_objects) {
+	if (pd->fetch_progress.total_objects &&
+		pd->fetch_progress.received_objects == pd->fetch_progress.total_objects) {
 		printf("Resolving deltas %d/%d\r",
 		       pd->fetch_progress.indexed_deltas,
 		       pd->fetch_progress.total_deltas);
@@ -38,6 +44,15 @@ static void print_progress(const progress_data *pd)
 		   pd->completed_steps, pd->total_steps,
 		   pd->path);
 	}
+}
+
+static int sideband_progress(const char *str, int len, void *payload)
+{
+	(void)payload; // unused
+
+	printf("remote: %*s", len, str);
+	fflush(stdout);
+	return 0;
 }
 
 static int fetch_progress(const git_transfer_progress *stats, void *payload)
@@ -76,13 +91,14 @@ int do_clone(git_repository *repo, int argc, char **argv)
 	}
 
 	// Set up options
-	checkout_opts.checkout_strategy = GIT_CHECKOUT_SAFE_CREATE;
+	checkout_opts.checkout_strategy = GIT_CHECKOUT_SAFE;
 	checkout_opts.progress_cb = checkout_progress;
 	checkout_opts.progress_payload = &pd;
 	clone_opts.checkout_opts = checkout_opts;
-	clone_opts.remote_callbacks.transfer_progress = &fetch_progress;
-	clone_opts.remote_callbacks.credentials = cred_acquire_cb;
-	clone_opts.remote_callbacks.payload = &pd;
+	clone_opts.fetch_opts.callbacks.sideband_progress = sideband_progress;
+	clone_opts.fetch_opts.callbacks.transfer_progress = &fetch_progress;
+	clone_opts.fetch_opts.callbacks.credentials = cred_acquire_cb;
+	clone_opts.fetch_opts.callbacks.payload = &pd;
 
 	// Do the clone
 	error = git_clone(&cloned_repo, url, path, &clone_opts);

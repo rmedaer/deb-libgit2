@@ -9,12 +9,55 @@
 #include "smart.h"
 #include "git2/cred_helpers.h"
 
+static int git_cred_ssh_key_type_new(
+	git_cred **cred,
+	const char *username,
+	const char *publickey,
+	const char *privatekey,
+	const char *passphrase,
+	git_credtype_t credtype);
+
 int git_cred_has_username(git_cred *cred)
 {
 	if (cred->credtype == GIT_CREDTYPE_DEFAULT)
 		return 0;
 
 	return 1;
+}
+
+const char *git_cred__username(git_cred *cred)
+{
+	switch (cred->credtype) {
+	case GIT_CREDTYPE_USERNAME:
+	{
+		git_cred_username *c = (git_cred_username *) cred;
+		return c->username;
+	}
+	case GIT_CREDTYPE_USERPASS_PLAINTEXT:
+	{
+		git_cred_userpass_plaintext *c = (git_cred_userpass_plaintext *) cred;
+		return c->username;
+	}
+	case GIT_CREDTYPE_SSH_KEY:
+	case GIT_CREDTYPE_SSH_MEMORY:
+	{
+		git_cred_ssh_key *c = (git_cred_ssh_key *) cred;
+		return c->username;
+	}
+	case GIT_CREDTYPE_SSH_CUSTOM:
+	{
+		git_cred_ssh_custom *c = (git_cred_ssh_custom *) cred;
+		return c->username;
+	}
+	case GIT_CREDTYPE_SSH_INTERACTIVE:
+	{
+		git_cred_ssh_interactive *c = (git_cred_ssh_interactive *) cred;
+		return c->username;
+	}
+
+	default:
+		return NULL;
+	}
 }
 
 static void plaintext_free(struct git_cred *cred)
@@ -129,12 +172,62 @@ static void default_free(struct git_cred *cred)
 	git__free(c);
 }
 
+static void username_free(struct git_cred *cred)
+{
+	git__free(cred);
+}
+
 int git_cred_ssh_key_new(
 	git_cred **cred,
 	const char *username,
 	const char *publickey,
 	const char *privatekey,
 	const char *passphrase)
+{
+	return git_cred_ssh_key_type_new(
+		cred,
+		username,
+		publickey,
+		privatekey,
+		passphrase,
+		GIT_CREDTYPE_SSH_KEY);
+}
+
+int git_cred_ssh_key_memory_new(
+	git_cred **cred,
+	const char *username,
+	const char *publickey,
+	const char *privatekey,
+	const char *passphrase)
+{
+#ifdef GIT_SSH_MEMORY_CREDENTIALS
+	return git_cred_ssh_key_type_new(
+		cred,
+		username,
+		publickey,
+		privatekey,
+		passphrase,
+		GIT_CREDTYPE_SSH_MEMORY);
+#else
+	GIT_UNUSED(cred);
+	GIT_UNUSED(username);
+	GIT_UNUSED(publickey);
+	GIT_UNUSED(privatekey);
+	GIT_UNUSED(passphrase);
+
+	giterr_set(GITERR_INVALID,
+		"This version of libgit2 was not built with ssh memory credentials.");
+	return -1;
+#endif
+}
+
+static int git_cred_ssh_key_type_new(
+	git_cred **cred,
+	const char *username,
+	const char *publickey,
+	const char *privatekey,
+	const char *passphrase,
+	git_credtype_t credtype)
 {
 	git_cred_ssh_key *c;
 
@@ -143,7 +236,7 @@ int git_cred_ssh_key_new(
 	c = git__calloc(1, sizeof(git_cred_ssh_key));
 	GITERR_CHECK_ALLOC(c);
 
-	c->parent.credtype = GIT_CREDTYPE_SSH_KEY;
+	c->parent.credtype = credtype;
 	c->parent.free = ssh_key_free;
 
 	c->username = git__strdup(username);
@@ -261,5 +354,27 @@ int git_cred_default_new(git_cred **cred)
 	c->free = default_free;
 
 	*cred = c;
+	return 0;
+}
+
+int git_cred_username_new(git_cred **cred, const char *username)
+{
+	git_cred_username *c;
+	size_t len, allocsize;
+
+	assert(cred);
+
+	len = strlen(username);
+
+	GITERR_CHECK_ALLOC_ADD(&allocsize, sizeof(git_cred_username), len);
+	GITERR_CHECK_ALLOC_ADD(&allocsize, allocsize, 1);
+	c = git__malloc(allocsize);
+	GITERR_CHECK_ALLOC(c);
+
+	c->parent.credtype = GIT_CREDTYPE_USERNAME;
+	c->parent.free = username_free;
+	memcpy(c->username, username, len + 1);
+
+	*cred = (git_cred *) c;
 	return 0;
 }

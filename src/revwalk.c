@@ -14,6 +14,8 @@
 #include "git2/revparse.h"
 #include "merge.h"
 
+GIT__USE_OIDMAP;
+
 git_commit_list_node *git_revwalk__commit_lookup(
 	git_revwalk *walk, const git_oid *oid)
 {
@@ -39,17 +41,34 @@ git_commit_list_node *git_revwalk__commit_lookup(
 	return commit;
 }
 
+typedef git_array_t(git_commit_list_node*) commit_list_node_array;
+
+static bool interesting_arr(commit_list_node_array arr)
+{
+	git_commit_list_node **n;
+	size_t i = 0, size;
+
+	size = git_array_size(arr);
+	for (i = 0; i < size; i++) {
+		n = git_array_get(arr, i);
+		if (!*n)
+			break;
+
+		if (!(*n)->uninteresting)
+			return true;
+	}
+
+	return false;
+}
+
 static int mark_uninteresting(git_revwalk *walk, git_commit_list_node *commit)
 {
 	int error;
 	unsigned short i;
-	git_array_t(git_commit_list_node *) pending = GIT_ARRAY_INIT;
+	commit_list_node_array pending = GIT_ARRAY_INIT;
 	git_commit_list_node **tmp;
 
 	assert(commit);
-
-	git_array_init_to_size(pending, 2);
-	GITERR_CHECK_ARRAY(pending);
 
 	do {
 		commit->uninteresting = 1;
@@ -67,7 +86,7 @@ static int mark_uninteresting(git_revwalk *walk, git_commit_list_node *commit)
 		tmp = git_array_pop(pending);
 		commit = tmp ? *tmp : NULL;
 
-	} while (commit != NULL);
+	} while (commit != NULL && !interesting_arr(pending));
 
 	git_array_clear(pending);
 
@@ -119,6 +138,7 @@ static int push_commit(git_revwalk *walk, const git_oid *oid, int uninteresting,
 	int error;
 	git_object *obj, *oobj;
 	git_commit_list_node *commit;
+	git_commit_list *list;
 
 	if ((error = git_object_lookup(&oobj, walk->repo, oid, GIT_OBJ_ANY)) < 0)
 		return error;
@@ -126,7 +146,7 @@ static int push_commit(git_revwalk *walk, const git_oid *oid, int uninteresting,
 	error = git_object_peel(&obj, oobj, GIT_OBJ_COMMIT);
 	git_object_free(oobj);
 
-	if (error == GIT_ENOTFOUND) {
+	if (error == GIT_ENOTFOUND || error == GIT_EINVALIDSPEC || error == GIT_EPEEL) {
 		/* If this comes from e.g. push_glob("tags"), ignore this */
 		if (from_glob)
 			return 0;
@@ -144,13 +164,23 @@ static int push_commit(git_revwalk *walk, const git_oid *oid, int uninteresting,
 	if (commit == NULL)
 		return -1; /* error already reported by failed lookup */
 
+	/* A previous hide already told us we don't want this commit  */
+	if (commit->uninteresting)
+		return 0;
+
+	if (uninteresting)
+		walk->did_hide = 1;
+	else
+		walk->did_push = 1;
+
 	commit->uninteresting = uninteresting;
-	if (walk->one == NULL && !uninteresting) {
-		walk->one = commit;
-	} else {
-		if (git_vector_insert(&walk->twos, commit) < 0)
-			return -1;
+	list = walk->user_input;
+	if (git_commit_list_insert(commit, &list) == NULL) {
+		giterr_set_oom();
+		return -1;
 	}
+
+	walk->user_input = list;
 
 	return 0;
 }
@@ -370,28 +400,96 @@ static int revwalk_next_reverse(git_commit_list_node **object_out, git_revwalk *
 }
 
 
+static int interesting(git_pqueue *list)
+{
+	size_t i;
+
+	for (i = 0; i < git_pqueue_size(list); i++) {
+		git_commit_list_node *commit = git_pqueue_get(list, i);
+		if (!commit->uninteresting)
+			return 1;
+	}
+
+	return 0;
+}
+
+static int contains(git_pqueue *list, git_commit_list_node *node)
+{
+	size_t i;
+
+	for (i = 0; i < git_pqueue_size(list); i++) {
+		git_commit_list_node *commit = git_pqueue_get(list, i);
+		if (commit == node)
+			return 1;
+	}
+
+	return 0;
+}
+
+static int premark_uninteresting(git_revwalk *walk)
+{
+	int error = 0;
+	unsigned short i;
+	git_pqueue q;
+	git_commit_list *list;
+	git_commit_list_node *commit, *parent;
+
+	if ((error = git_pqueue_init(&q, 0, 8, git_commit_list_time_cmp)) < 0)
+		return error;
+
+	for (list = walk->user_input; list; list = list->next) {
+		if ((error = git_commit_list_parse(walk, list->item)) < 0)
+			goto cleanup;
+
+		if ((error = git_pqueue_insert(&q, list->item)) < 0)
+			goto cleanup;
+	}
+
+	while (interesting(&q)) {
+		commit = git_pqueue_pop(&q);
+
+		for (i = 0; i < commit->out_degree; i++) {
+			parent = commit->parents[i];
+
+			if ((error = git_commit_list_parse(walk, parent)) < 0)
+				goto cleanup;
+
+			if (commit->uninteresting)
+				parent->uninteresting = 1;
+
+			if (contains(&q, parent))
+				continue;
+
+			if ((error = git_pqueue_insert(&q, parent)) < 0)
+				goto cleanup;
+		}
+	}
+
+cleanup:
+	git_pqueue_free(&q);
+	return error;
+}
+
 static int prepare_walk(git_revwalk *walk)
 {
 	int error;
-	unsigned int i;
-	git_commit_list_node *next, *two;
+	git_commit_list *list;
+	git_commit_list_node *next;
 
-	/*
-	 * If walk->one is NULL, there were no positive references,
-	 * so we know that the walk is already over.
-	 */
-	if (walk->one == NULL) {
+	/* If there were no pushes, we know that the walk is already over */
+	if (!walk->did_push) {
 		giterr_clear();
 		return GIT_ITEROVER;
 	}
 
-	if (process_commit(walk, walk->one, walk->one->uninteresting) < 0)
-		return -1;
+	if (walk->did_hide && (error = premark_uninteresting(walk)) < 0)
+		return error;
 
-	git_vector_foreach(&walk->twos, i, two) {
-		if (process_commit(walk, two, two->uninteresting) < 0)
+	for (list = walk->user_input; list; list = list->next) {
+		if (process_commit(walk, list->item, list->item->uninteresting) < 0)
 			return -1;
 	}
+
 
 	if (walk->sorting & GIT_SORT_TOPOLOGICAL) {
 		unsigned short i;
@@ -431,19 +529,14 @@ static int prepare_walk(git_revwalk *walk)
 
 int git_revwalk_new(git_revwalk **revwalk_out, git_repository *repo)
 {
-	git_revwalk *walk;
-
-	walk = git__malloc(sizeof(git_revwalk));
+	git_revwalk *walk = git__calloc(1, sizeof(git_revwalk));
 	GITERR_CHECK_ALLOC(walk);
-
-	memset(walk, 0x0, sizeof(git_revwalk));
 
 	walk->commits = git_oidmap_alloc();
 	GITERR_CHECK_ALLOC(walk->commits);
 
 	if (git_pqueue_init(
 			&walk->iterator_time, 0, 8, git_commit_list_time_cmp) < 0 ||
-		git_vector_init(&walk->twos, 4, NULL) < 0 ||
 		git_pool_init(&walk->commit_pool, 1,
 			git_pool__suggest_items_per_page(COMMIT_ALLOC) * COMMIT_ALLOC) < 0)
 		return -1;
@@ -473,7 +566,6 @@ void git_revwalk_free(git_revwalk *walk)
 	git_oidmap_free(walk->commits);
 	git_pool_clear(&walk->commit_pool);
 	git_pqueue_free(&walk->iterator_time);
-	git_vector_free(&walk->twos);
 	git__free(walk);
 }
 
@@ -543,16 +635,17 @@ void git_revwalk_reset(git_revwalk *walk)
 		commit->in_degree = 0;
 		commit->topo_delay = 0;
 		commit->uninteresting = 0;
+		commit->flags = 0;
 		});
 
 	git_pqueue_clear(&walk->iterator_time);
 	git_commit_list_free(&walk->iterator_topo);
 	git_commit_list_free(&walk->iterator_rand);
 	git_commit_list_free(&walk->iterator_reverse);
+	git_commit_list_free(&walk->user_input);
+	walk->first_parent = 0;
 	walk->walking = 0;
-
-	walk->one = NULL;
-	git_vector_clear(&walk->twos);
+	walk->did_push = walk->did_hide = 0;
 }
 
 int git_revwalk_add_hide_cb(

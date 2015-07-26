@@ -76,13 +76,15 @@ static struct map_data _cvar_maps[] = {
 	{"core.precomposeunicode", NULL, 0, GIT_PRECOMPOSE_DEFAULT },
 	{"core.safecrlf", _cvar_map_safecrlf, ARRAY_SIZE(_cvar_map_safecrlf), GIT_SAFE_CRLF_DEFAULT},
 	{"core.logallrefupdates", NULL, 0, GIT_LOGALLREFUPDATES_DEFAULT },
+	{"core.protecthfs", NULL, 0, GIT_PROTECTHFS_DEFAULT },
+	{"core.protectntfs", NULL, 0, GIT_PROTECTNTFS_DEFAULT },
 };
 
 int git_config__cvar(int *out, git_config *config, git_cvar_cached cvar)
 {
 	int error = 0;
 	struct map_data *data = &_cvar_maps[(int)cvar];
-	const git_config_entry *entry;
+	git_config_entry *entry;
 
 	git_config__lookup_entry(&entry, config, data->cvar_name, false);
 
@@ -94,6 +96,7 @@ int git_config__cvar(int *out, git_config *config, git_cvar_cached cvar)
 	else
 		error = git_config_parse_bool(out, entry->value);
 
+	git_config_entry_free(entry);
 	return error;
 }
 

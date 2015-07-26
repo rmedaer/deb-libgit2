@@ -2,11 +2,13 @@
 #include "posix.h"
 #include "path.h"
 #include "submodule_helpers.h"
+#include "config/config_helpers.h"
 
 static git_repository *g_repo = NULL;
 
-#define SM_LIBGIT2_URL "https://github.com/libgit2/libgit2.git"
-#define SM_LIBGIT2     "sm_libgit2"
+#define SM_LIBGIT2_URL    "https://github.com/libgit2/libgit2.git"
+#define SM_LIBGIT2_BRANCH "github-branch"
+#define SM_LIBGIT2        "sm_libgit2"
 
 void test_submodule_modify__initialize(void)
 {
@@ -39,19 +41,17 @@ void test_submodule_modify__init(void)
 	git_config_free(cfg);
 
 	/* confirm no submodule data in config */
-	cl_git_pass(git_repository_config(&cfg, g_repo));
-	cl_git_fail(git_config_get_string(&str, cfg, "submodule.sm_unchanged.url"));
-	cl_git_fail(git_config_get_string(&str, cfg, "submodule.sm_changed_head.url"));
-	cl_git_fail(git_config_get_string(&str, cfg, "submodule.sm_added_and_uncommited.url"));
+	cl_git_pass(git_repository_config_snapshot(&cfg, g_repo));
+	cl_git_fail_with(GIT_ENOTFOUND, git_config_get_string(&str, cfg, "submodule.sm_unchanged.url"));
+	cl_git_fail_with(GIT_ENOTFOUND, git_config_get_string(&str, cfg, "submodule.sm_changed_head.url"));
+	cl_git_fail_with(GIT_ENOTFOUND, git_config_get_string(&str, cfg, "submodule.sm_added_and_uncommited.url"));
 	git_config_free(cfg);
 
 	/* call init and see that settings are copied */
 	cl_git_pass(git_submodule_foreach(g_repo, init_one_submodule, NULL));
 
-	git_submodule_reload_all(g_repo, 1);
-
 	/* confirm submodule data in config */
-	cl_git_pass(git_repository_config(&cfg, g_repo));
+	cl_git_pass(git_repository_config_snapshot(&cfg, g_repo));
 	cl_git_pass(git_config_get_string(&str, cfg, "submodule.sm_unchanged.url"));
 	cl_assert(git__suffixcmp(str, "/submod2_target") == 0);
 	cl_git_pass(git_config_get_string(&str, cfg, "submodule.sm_changed_head.url"));
@@ -72,20 +72,12 @@ static int sync_one_submodule(
 static void assert_submodule_url_is_synced(
 	git_submodule *sm, const char *parent_key, const char *child_key)
 {
-	git_config *cfg;
-	const char *str;
 	git_repository *smrepo;
 
-	cl_git_pass(git_repository_config(&cfg, g_repo));
-	cl_git_pass(git_config_get_string(&str, cfg, parent_key));
-	cl_assert_equal_s(git_submodule_url(sm), str);
-	git_config_free(cfg);
+	assert_config_entry_value(g_repo, parent_key, git_submodule_url(sm));
 
 	cl_git_pass(git_submodule_open(&smrepo, sm));
-	cl_git_pass(git_repository_config(&cfg, smrepo));
-	cl_git_pass(git_config_get_string(&str, cfg, child_key));
-	cl_assert_equal_s(git_submodule_url(sm), str);
-	git_config_free(cfg);
+	assert_config_entry_value(smrepo, child_key,  git_submodule_url(sm));
 	git_repository_free(smrepo);
 }
 
@@ -111,7 +103,7 @@ void test_submodule_modify__sync(void)
 	 */
 
 	/* check submodule info does not match before sync */
-	cl_git_pass(git_repository_config(&cfg, g_repo));
+	cl_git_pass(git_repository_config_snapshot(&cfg, g_repo));
 	cl_git_pass(git_config_get_string(&str, cfg, "submodule."SM1".url"));
 	cl_assert(strcmp(git_submodule_url(sm1), str) != 0);
 	cl_git_pass(git_config_get_string(&str, cfg, "submodule."SM2".url"));
@@ -125,121 +117,96 @@ void test_submodule_modify__sync(void)
 
 	/* check that submodule config is updated */
 	assert_submodule_url_is_synced(
-		sm1, "submodule."SM1".url", "branch.origin.remote");
+		sm1, "submodule."SM1".url", "remote.origin.url");
 	assert_submodule_url_is_synced(
-		sm2, "submodule."SM2".url", "branch.origin.remote");
+		sm2, "submodule."SM2".url", "remote.origin.url");
 	assert_submodule_url_is_synced(
-		sm3, "submodule."SM3".url", "branch.origin.remote");
+		sm3, "submodule."SM3".url", "remote.origin.url");
 
 	git_submodule_free(sm1);
 	git_submodule_free(sm2);
 	git_submodule_free(sm3);
 }
 
-void test_submodule_modify__edit_and_save(void)
+void assert_ignore_change(git_submodule_ignore_t ignore)
 {
-	git_submodule *sm1, *sm2;
-	char *old_url;
-	git_submodule_ignore_t old_ignore;
-	git_submodule_update_t old_update;
-	git_repository *r2;
-	git_submodule_recurse_t old_fetchrecurse;
+	git_submodule *sm;
 
-	cl_git_pass(git_submodule_lookup(&sm1, g_repo, "sm_changed_head"));
+	cl_git_pass(git_submodule_set_ignore(g_repo, "sm_changed_head", ignore));
 
-	old_url = git__strdup(git_submodule_url(sm1));
+	cl_git_pass(git_submodule_lookup(&sm, g_repo, "sm_changed_head"));
+	cl_assert_equal_i(ignore, git_submodule_ignore(sm));
+	git_submodule_free(sm);
+}
 
-	/* modify properties of submodule */
-	cl_git_pass(git_submodule_set_url(sm1, SM_LIBGIT2_URL));
-	old_ignore = git_submodule_set_ignore(sm1, GIT_SUBMODULE_IGNORE_UNTRACKED);
-	old_update = git_submodule_set_update(sm1, GIT_SUBMODULE_UPDATE_REBASE);
-	old_fetchrecurse = git_submodule_set_fetch_recurse_submodules(
-		sm1, GIT_SUBMODULE_RECURSE_YES);
+void test_submodule_modify__set_ignore(void)
+{
+	assert_ignore_change(GIT_SUBMODULE_IGNORE_UNTRACKED);
+	assert_ignore_change(GIT_SUBMODULE_IGNORE_NONE);
+	assert_ignore_change(GIT_SUBMODULE_IGNORE_ALL);
+}
 
-	cl_assert_equal_s(SM_LIBGIT2_URL, git_submodule_url(sm1));
-	cl_assert_equal_i(
-		GIT_SUBMODULE_IGNORE_UNTRACKED, git_submodule_ignore(sm1));
-	cl_assert_equal_i(
-		GIT_SUBMODULE_UPDATE_REBASE, git_submodule_update(sm1));
-	cl_assert_equal_i(
-		GIT_SUBMODULE_RECURSE_YES, git_submodule_fetch_recurse_submodules(sm1));
+void assert_update_change(git_submodule_update_t update)
+{
+	git_submodule *sm;
 
-	/* revert without saving (and confirm setters return old value) */
-	cl_git_pass(git_submodule_set_url(sm1, old_url));
-	cl_assert_equal_i(
-		GIT_SUBMODULE_IGNORE_UNTRACKED,
-		git_submodule_set_ignore(sm1, GIT_SUBMODULE_IGNORE_RESET));
-	cl_assert_equal_i(
-		GIT_SUBMODULE_UPDATE_REBASE,
-		git_submodule_set_update(sm1, GIT_SUBMODULE_UPDATE_RESET));
-	cl_assert_equal_i(
-		GIT_SUBMODULE_RECURSE_YES, git_submodule_set_fetch_recurse_submodules(
-			sm1, GIT_SUBMODULE_RECURSE_RESET));
+	cl_git_pass(git_submodule_set_update(g_repo, "sm_changed_head", update));
 
-	/* check that revert was successful */
-	cl_assert_equal_s(old_url, git_submodule_url(sm1));
-	cl_assert_equal_i((int)old_ignore, (int)git_submodule_ignore(sm1));
-	cl_assert_equal_i((int)old_update, (int)git_submodule_update(sm1));
-	cl_assert_equal_i(
-		old_fetchrecurse, git_submodule_fetch_recurse_submodules(sm1));
+	cl_git_pass(git_submodule_lookup(&sm, g_repo, "sm_changed_head"));
+	cl_assert_equal_i(update, git_submodule_update_strategy(sm));
+	git_submodule_free(sm);
+}
 
-	/* modify properties of submodule (again) */
-	cl_git_pass(git_submodule_set_url(sm1, SM_LIBGIT2_URL));
-	git_submodule_set_ignore(sm1, GIT_SUBMODULE_IGNORE_UNTRACKED);
-	git_submodule_set_update(sm1, GIT_SUBMODULE_UPDATE_REBASE);
-	git_submodule_set_fetch_recurse_submodules(sm1, GIT_SUBMODULE_RECURSE_YES);
+void test_submodule_modify__set_update(void)
+{
+	assert_update_change(GIT_SUBMODULE_UPDATE_REBASE);
+	assert_update_change(GIT_SUBMODULE_UPDATE_NONE);
+	assert_update_change(GIT_SUBMODULE_UPDATE_CHECKOUT);
+}
 
-	/* call save */
-	cl_git_pass(git_submodule_save(sm1));
+void assert_recurse_change(git_submodule_recurse_t recurse)
+{
+	git_submodule *sm;
 
-	/* attempt to "revert" values */
-	git_submodule_set_ignore(sm1, GIT_SUBMODULE_IGNORE_RESET);
-	git_submodule_set_update(sm1, GIT_SUBMODULE_UPDATE_RESET);
+	cl_git_pass(git_submodule_set_fetch_recurse_submodules(g_repo, "sm_changed_head", recurse));
 
-	/* but ignore and update should NOT revert because the RESET
-	 * should now be the newly saved value...
-	 */
-	cl_assert_equal_i(
-		(int)GIT_SUBMODULE_IGNORE_UNTRACKED, (int)git_submodule_ignore(sm1));
-	cl_assert_equal_i(
-		(int)GIT_SUBMODULE_UPDATE_REBASE, (int)git_submodule_update(sm1));
-	cl_assert_equal_i(GIT_SUBMODULE_RECURSE_YES, git_submodule_fetch_recurse_submodules(sm1));
+	cl_git_pass(git_submodule_lookup(&sm, g_repo, "sm_changed_head"));
+	cl_assert_equal_i(recurse, git_submodule_fetch_recurse_submodules(sm));
+	git_submodule_free(sm);
+}
 
-	/* call reload and check that the new values are loaded */
-	cl_git_pass(git_submodule_reload(sm1, 0));
+void test_submodule_modify__set_fetch_recurse_submodules(void)
+{
+	assert_recurse_change(GIT_SUBMODULE_RECURSE_YES);
+	assert_recurse_change(GIT_SUBMODULE_RECURSE_NO);
+	assert_recurse_change(GIT_SUBMODULE_RECURSE_ONDEMAND);
+}
 
-	cl_assert_equal_s(SM_LIBGIT2_URL, git_submodule_url(sm1));
-	cl_assert_equal_i(
-		(int)GIT_SUBMODULE_IGNORE_UNTRACKED, (int)git_submodule_ignore(sm1));
-	cl_assert_equal_i(
-		(int)GIT_SUBMODULE_UPDATE_REBASE, (int)git_submodule_update(sm1));
-	cl_assert_equal_i(GIT_SUBMODULE_RECURSE_YES, git_submodule_fetch_recurse_submodules(sm1));
+void test_submodule_modify__set_branch(void)
+{
+	git_submodule *sm;
 
-	/* open a second copy of the repo and compare submodule */
-	cl_git_pass(git_repository_open(&r2, "submod2"));
-	cl_git_pass(git_submodule_lookup(&sm2, r2, "sm_changed_head"));
+	cl_git_pass(git_submodule_lookup(&sm, g_repo, "sm_changed_head"));
+	cl_assert(git_submodule_branch(sm) == NULL);
+	git_submodule_free(sm);
 
-	cl_assert_equal_s(SM_LIBGIT2_URL, git_submodule_url(sm2));
-	cl_assert_equal_i(
-		GIT_SUBMODULE_IGNORE_UNTRACKED, git_submodule_ignore(sm2));
-	cl_assert_equal_i(
-		GIT_SUBMODULE_UPDATE_REBASE, git_submodule_update(sm2));
-	cl_assert_equal_i(
-		GIT_SUBMODULE_RECURSE_NO, git_submodule_fetch_recurse_submodules(sm2));
+	cl_git_pass(git_submodule_set_branch(g_repo, "sm_changed_head", SM_LIBGIT2_BRANCH));
+	cl_git_pass(git_submodule_lookup(&sm, g_repo, "sm_changed_head"));
+	cl_assert_equal_s(SM_LIBGIT2_BRANCH, git_submodule_branch(sm));
+	git_submodule_free(sm);
 
-	/* set fetchRecurseSubmodules on-demand */
-	cl_git_pass(git_submodule_reload(sm1, 0));
-	git_submodule_set_fetch_recurse_submodules(sm1, GIT_SUBMODULE_RECURSE_ONDEMAND);
-	cl_assert_equal_i(
-		GIT_SUBMODULE_RECURSE_ONDEMAND, git_submodule_fetch_recurse_submodules(sm1));
-	/* call save */
-	cl_git_pass(git_submodule_save(sm1));
-	cl_git_pass(git_submodule_reload(sm1, 0));
-	cl_assert_equal_i(
-		GIT_SUBMODULE_RECURSE_ONDEMAND, git_submodule_fetch_recurse_submodules(sm1));
+	cl_git_pass(git_submodule_set_branch(g_repo, "sm_changed_head", NULL));
+	cl_git_pass(git_submodule_lookup(&sm, g_repo, "sm_changed_head"));
+	cl_assert(git_submodule_branch(sm) == NULL);
+	git_submodule_free(sm);
+}
 
-	git_submodule_free(sm1);
-	git_submodule_free(sm2);
-	git_repository_free(r2);
-	git__free(old_url);
+void test_submodule_modify__set_url(void)
+{
+	git_submodule *sm;
+
+	cl_git_pass(git_submodule_set_url(g_repo, "sm_changed_head", SM_LIBGIT2_URL));
+	cl_git_pass(git_submodule_lookup(&sm, g_repo, "sm_changed_head"));
+	cl_assert_equal_s(SM_LIBGIT2_URL, git_submodule_url(sm));
+	git_submodule_free(sm);
 }

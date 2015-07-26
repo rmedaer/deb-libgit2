@@ -49,12 +49,12 @@ static const int result_bytes = 24;
 static int get_commit_index(git_oid *raw_oid)
 {
 	int i;
-	char oid[40];
+	char oid[GIT_OID_HEXSZ];
 
 	git_oid_fmt(oid, raw_oid);
 
 	for (i = 0; i < commit_count; ++i)
-		if (memcmp(oid, commit_ids[i], 40) == 0)
+		if (memcmp(oid, commit_ids[i], GIT_OID_HEXSZ) == 0)
 			return i;
 
 	return -1;
@@ -74,9 +74,9 @@ static int test_walk_only(git_revwalk *walk,
 	while (git_revwalk_next(&oid, walk) == 0) {
 		result_array[i++] = get_commit_index(&oid);
 		/*{
-			char str[41];
+			char str[GIT_OID_HEXSZ+1];
 			git_oid_fmt(str, &oid);
-			str[40] = 0;
+			str[GIT_OID_HEXSZ] = 0;
 			printf("  %d) %s\n", i, str);
 		}*/
 	}
@@ -177,7 +177,7 @@ void test_revwalk_basic__glob_heads_with_invalid(void)
 		/* walking */;
 
 	/* git log --branches --oneline | wc -l => 16 */
-	cl_assert_equal_i(17, i);
+	cl_assert_equal_i(18, i);
 }
 
 void test_revwalk_basic__push_head(void)
@@ -312,6 +312,23 @@ void test_revwalk_basic__disallow_non_commit(void)
 
 	cl_git_pass(git_oid_fromstr(&oid, "521d87c1ec3aef9824daf6d96cc0ae3710766d91"));
 	cl_git_fail(git_revwalk_push(_walk, &oid));
+}
+
+void test_revwalk_basic__hide_then_push(void)
+{
+	git_oid oid;
+	int i = 0;
+
+	revwalk_basic_setup_walk(NULL);
+	cl_git_pass(git_oid_fromstr(&oid, "5b5b025afb0b4c913b4c338a42934a3863bf3644"));
+
+	cl_git_pass(git_revwalk_hide(_walk, &oid));
+	cl_git_pass(git_revwalk_push(_walk, &oid));
+
+	while (git_revwalk_next(&oid, _walk) == 0)
+		i++;
+
+	cl_assert_equal_i(i, 0);
 }
 
 void test_revwalk_basic__push_range(void)

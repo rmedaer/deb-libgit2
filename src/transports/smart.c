@@ -53,12 +53,14 @@ static int git_smart__set_callbacks(
 	git_transport *transport,
 	git_transport_message_cb progress_cb,
 	git_transport_message_cb error_cb,
+	git_transport_certificate_check_cb certificate_check_cb,
 	void *message_cb_payload)
 {
 	transport_smart *t = (transport_smart *)transport;
 
 	t->progress_cb = progress_cb;
 	t->error_cb = error_cb;
+	t->certificate_check_cb = certificate_check_cb;
 	t->message_cb_payload = message_cb_payload;
 
 	return 0;
@@ -156,7 +158,7 @@ static int git_smart__connect(
 	/* Save off the current stream (i.e. socket) that we are working with */
 	t->current_stream = stream;
 
-	gitno_buffer_setup_callback(NULL, &t->buffer, t->buffer_data, sizeof(t->buffer_data), git_smart__recv_cb, t);
+	gitno_buffer_setup_callback(&t->buffer, t->buffer_data, sizeof(t->buffer_data), git_smart__recv_cb, t);
 
 	/* 2 flushes for RPC; 1 for stateful */
 	if ((error = git_smart__store_refs(t, t->rpc ? 2 : 1)) < 0)
@@ -250,7 +252,7 @@ int git_smart__negotiation_step(git_transport *transport, void *data, size_t len
 	if ((error = stream->write(stream, (const char *)data, len)) < 0)
 		return error;
 
-	gitno_buffer_setup_callback(NULL, &t->buffer, t->buffer_data, sizeof(t->buffer_data), git_smart__recv_cb, t);
+	gitno_buffer_setup_callback(&t->buffer, t->buffer_data, sizeof(t->buffer_data), git_smart__recv_cb, t);
 
 	return 0;
 }
@@ -276,7 +278,7 @@ int git_smart__get_push_stream(transport_smart *t, git_smart_subtransport_stream
 	/* Save off the current stream (i.e. socket) that we are working with */
 	t->current_stream = *stream;
 
-	gitno_buffer_setup_callback(NULL, &t->buffer, t->buffer_data, sizeof(t->buffer_data), git_smart__recv_cb, t);
+	gitno_buffer_setup_callback(&t->buffer, t->buffer_data, sizeof(t->buffer_data), git_smart__recv_cb, t);
 
 	return 0;
 }
@@ -378,7 +380,7 @@ int git_transport_smart(git_transport **out, git_remote *owner, void *param)
 	if (!param)
 		return -1;
 
-	t = git__calloc(sizeof(transport_smart), 1);
+	t = git__calloc(1, sizeof(transport_smart));
 	GITERR_CHECK_ALLOC(t);
 
 	t->parent.version = GIT_TRANSPORT_VERSION;
@@ -407,7 +409,7 @@ int git_transport_smart(git_transport **out, git_remote *owner, void *param)
 		return -1;
 	}
 
-	if (definition->callback(&t->wrapped, &t->parent) < 0) {
+	if (definition->callback(&t->wrapped, &t->parent, definition->param) < 0) {
 		git__free(t);
 		return -1;
 	}

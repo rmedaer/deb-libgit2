@@ -37,7 +37,7 @@ static void test_with_many(int expected_new)
 
 	memset(&exp, 0, sizeof(exp));
 	cl_git_pass(git_diff_foreach(
-		diff, diff_file_cb, NULL, NULL, &exp));
+		diff, diff_file_cb, NULL, NULL, NULL, &exp));
 	cl_assert_equal_i(1, exp.file_status[GIT_DELTA_DELETED]);
 	cl_assert_equal_i(expected_new + 1, exp.file_status[GIT_DELTA_ADDED]);
 	cl_assert_equal_i(expected_new + 2, exp.files);
@@ -47,7 +47,7 @@ static void test_with_many(int expected_new)
 
 	memset(&exp, 0, sizeof(exp));
 	cl_git_pass(git_diff_foreach(
-		diff, diff_file_cb, NULL, NULL, &exp));
+		diff, diff_file_cb, NULL, NULL, NULL, &exp));
 	cl_assert_equal_i(1, exp.file_status[GIT_DELTA_RENAMED]);
 	cl_assert_equal_i(expected_new, exp.file_status[GIT_DELTA_ADDED]);
 	cl_assert_equal_i(expected_new + 1, exp.files);
@@ -63,7 +63,7 @@ static void test_with_many(int expected_new)
 
 	memset(&exp, 0, sizeof(exp));
 	cl_git_pass(git_diff_foreach(
-		diff, diff_file_cb, NULL, NULL, &exp));
+		diff, diff_file_cb, NULL, NULL, NULL, &exp));
 	cl_assert_equal_i(1, exp.file_status[GIT_DELTA_DELETED]);
 	cl_assert_equal_i(expected_new + 1, exp.file_status[GIT_DELTA_ADDED]);
 	cl_assert_equal_i(expected_new + 2, exp.files);
@@ -73,7 +73,7 @@ static void test_with_many(int expected_new)
 
 	memset(&exp, 0, sizeof(exp));
 	cl_git_pass(git_diff_foreach(
-		diff, diff_file_cb, NULL, NULL, &exp));
+		diff, diff_file_cb, NULL, NULL, NULL, &exp));
 	cl_assert_equal_i(1, exp.file_status[GIT_DELTA_RENAMED]);
 	cl_assert_equal_i(expected_new, exp.file_status[GIT_DELTA_ADDED]);
 	cl_assert_equal_i(expected_new + 1, exp.files);
@@ -97,14 +97,14 @@ void test_stress_diff__rename_big_files(void)
 	cl_git_pass(git_repository_index(&index, g_repo));
 
 	for (i = 0; i < 100; i += 1) {
-		snprintf(tmp, sizeof(tmp), "renames/newfile%03d", i);
+		p_snprintf(tmp, sizeof(tmp), "renames/newfile%03d", i);
 		for (j = i * 256; j > 0; --j)
 			git_buf_printf(&b, "more content %d\n", i);
 		cl_git_mkfile(tmp, b.ptr);
 	}
 
 	for (i = 0; i < 100; i += 1) {
-		snprintf(tmp, sizeof(tmp), "renames/newfile%03d", i);
+		p_snprintf(tmp, sizeof(tmp), "renames/newfile%03d", i);
 		cl_git_pass(git_index_add_bypath(index, tmp + strlen("renames/")));
 	}
 
@@ -128,15 +128,15 @@ void test_stress_diff__rename_many_files(void)
 	git_buf_printf(&b, "%08d\n" ANOTHER_POEM "%08d\n" ANOTHER_POEM ANOTHER_POEM, 0, 0);
 
 	for (i = 0; i < 2500; i += 1) {
-		snprintf(tmp, sizeof(tmp), "renames/newfile%03d", i);
-		snprintf(b.ptr, 9, "%08d", i);
+		p_snprintf(tmp, sizeof(tmp), "renames/newfile%03d", i);
+		p_snprintf(b.ptr, 9, "%08d", i);
 		b.ptr[8] = '\n';
 		cl_git_mkfile(tmp, b.ptr);
 	}
 	git_buf_free(&b);
 
 	for (i = 0; i < 2500; i += 1) {
-		snprintf(tmp, sizeof(tmp), "renames/newfile%03d", i);
+		p_snprintf(tmp, sizeof(tmp), "renames/newfile%03d", i);
 		cl_git_pass(git_index_add_bypath(index, tmp + strlen("renames/")));
 	}
 

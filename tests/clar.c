@@ -11,6 +11,7 @@
 #include <string.h>
 #include <math.h>
 #include <stdarg.h>
+#include <wchar.h>
 
 /* required for sandboxing */
 #include <sys/types.h>
@@ -131,6 +132,10 @@ static struct {
 
 	jmp_buf trampoline;
 	int trampoline_enabled;
+
+	cl_trace_cb *pfn_trace_cb;
+	void *trace_payload;
+
 } _clar;
 
 struct clar_func {
@@ -162,6 +167,23 @@ static int clar_sandbox(void);
 /* Load the declarations for the test suite */
 #include "clar.suite"
 
+
+#define CL_TRACE(ev)													\
+	do {																\
+		if (_clar.pfn_trace_cb)											\
+			_clar.pfn_trace_cb(ev,										\
+							   _clar.active_suite,						\
+							   _clar.active_test,						\
+							   _clar.trace_payload);					\
+	} while (0)
+
+void cl_trace_register(cl_trace_cb *cb, void *payload)
+{
+	_clar.pfn_trace_cb = cb;
+	_clar.trace_payload = payload;
+}
+
+
 /* Core test functions */
 static void
 clar_report_errors(void)
@@ -190,11 +212,15 @@ clar_run_test(
 	_clar.test_status = CL_TEST_OK;
 	_clar.trampoline_enabled = 1;
 
+	CL_TRACE(CL_TRACE__TEST__BEGIN);
+
 	if (setjmp(_clar.trampoline) == 0) {
 		if (initialize->ptr != NULL)
 			initialize->ptr();
 
+		CL_TRACE(CL_TRACE__TEST__RUN_BEGIN);
 		test->ptr();
+		CL_TRACE(CL_TRACE__TEST__RUN_END);
 	}
 
 	_clar.trampoline_enabled = 0;
@@ -204,6 +230,8 @@ clar_run_test(
 
 	if (cleanup->ptr != NULL)
 		cleanup->ptr();
+
+	CL_TRACE(CL_TRACE__TEST__END);
 
 	_clar.tests_ran++;
 
@@ -234,6 +262,8 @@ clar_run_suite(const struct clar_suite *suite, const char *filter)
 		clar_print_onsuite(suite->name, ++_clar.suites_ran);
 
 	_clar.active_suite = suite->name;
+	_clar.active_test = NULL;
+	CL_TRACE(CL_TRACE__SUITE_BEGIN);
 
 	if (filter) {
 		size_t suitelen = strlen(suite->name);
@@ -258,6 +288,9 @@ clar_run_suite(const struct clar_suite *suite, const char *filter)
 		if (_clar.exit_on_error && _clar.total_errors)
 			return;
 	}
+
+	_clar.active_test = NULL;
+	CL_TRACE(CL_TRACE__SUITE_END);
 }
 
 static void
@@ -268,6 +301,7 @@ clar_usage(const char *arg)
 	printf("  -sname\tRun only the suite with `name` (can go to individual test name)\n");
 	printf("  -iname\tInclude the suite with `name`\n");
 	printf("  -xname\tExclude the suite with `name`\n");
+	printf("  -v    \tIncrease verbosity (show suite names)\n");
 	printf("  -q    \tOnly report tests that had an error\n");
 	printf("  -Q    \tQuit as soon as a test fails\n");
 	printf("  -l    \tPrint suite names\n");
@@ -312,7 +346,7 @@ clar_parse_args(int argc, char **argv)
 						_clar.report_suite_names = 1;
 
 					switch (action) {
-					case 's': clar_run_suite(&_clar_suites[j], argument); break;
+					case 's': _clar_suites[j].enabled = 1; clar_run_suite(&_clar_suites[j], argument); break;
 					case 'i': _clar_suites[j].enabled = 1; break;
 					case 'x': _clar_suites[j].enabled = 0; break;
 					}
@@ -345,6 +379,10 @@ clar_parse_args(int argc, char **argv)
 
 			exit(0);
 		}
+
+		case 'v':
+			_clar.report_suite_names = 1;
+			break;
 
 		default:
 			clar_usage(argv[0]);
@@ -418,6 +456,7 @@ static void abort_test(void)
 		exit(-1);
 	}
 
+	CL_TRACE(CL_TRACE__TEST__LONGJMP);
 	longjmp(_clar.trampoline, -1);
 }
 
@@ -522,6 +561,41 @@ void clar__assert_equal(
 					len, s1, len, s2, pos);
 			} else {
 				p_snprintf(buf, sizeof(buf), "'%.*s' != '%.*s'", len, s1, len, s2);
+			}
+		}
+	}
+	else if (!strcmp("%ls", fmt)) {
+		const wchar_t *wcs1 = va_arg(args, const wchar_t *);
+		const wchar_t *wcs2 = va_arg(args, const wchar_t *);
+		is_equal = (!wcs1 || !wcs2) ? (wcs1 == wcs2) : !wcscmp(wcs1, wcs2);
+
+		if (!is_equal) {
+			if (wcs1 && wcs2) {
+				int pos;
+				for (pos = 0; wcs1[pos] == wcs2[pos] && wcs1[pos] && wcs2[pos]; ++pos)
+					/* find differing byte offset */;
+				p_snprintf(buf, sizeof(buf), "'%ls' != '%ls' (at byte %d)",
+					wcs1, wcs2, pos);
+			} else {
+				p_snprintf(buf, sizeof(buf), "'%ls' != '%ls'", wcs1, wcs2);
+			}
+		}
+	}
+	else if(!strcmp("%.*ls", fmt)) {
+		const wchar_t *wcs1 = va_arg(args, const wchar_t *);
+		const wchar_t *wcs2 = va_arg(args, const wchar_t *);
+		int len = va_arg(args, int);
+		is_equal = (!wcs1 || !wcs2) ? (wcs1 == wcs2) : !wcsncmp(wcs1, wcs2, len);
+
+		if (!is_equal) {
+			if (wcs1 && wcs2) {
+				int pos;
+				for (pos = 0; wcs1[pos] == wcs2[pos] && pos < len; ++pos)
+					/* find differing byte offset */;
+				p_snprintf(buf, sizeof(buf), "'%.*ls' != '%.*ls' (at byte %d)",
+					len, wcs1, len, wcs2, pos);
+			} else {
+				p_snprintf(buf, sizeof(buf), "'%.*ls' != '%.*ls'", len, wcs1, len, wcs2);
 			}
 		}
 	}
