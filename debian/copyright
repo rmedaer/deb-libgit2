@@ -11,7 +11,7 @@ Copyright: 2013, Andreas Schneider <asn@cryptomilk.org>
 License: BSD-2-clause
 
 Files: debian/*
-Copyright: 2011-2014, Russell Sim <russell.sim@gmail.com>
+Copyright: 2011-2015, Russell Sim <russell.sim@gmail.com>
 License: GPL-2+
 
 Files: deps/regex/*
@@ -26,6 +26,10 @@ License: Zlib
 Files: deps/http-parser/*
 Copyright: Igor Sysoev, Joyent, Inc. and other Node contributors
 License: MIT+NGINX
+
+Files: deps/winhttp/winhttp.h
+Copyright: 2007, Francois Gouget
+License: LGPL-2.1+
 
 Files: examples/*
 Copyright: Public Domain
@@ -44,13 +48,14 @@ Copyright: 2010, Christopher Swenson
            2011, Vicent Marti
 License: MIT
 
-Files: src/path.c
+Files: src/path.c src/fnmatch.h
 Copyright: 2008, The Android Open Source Project
 License: BSD-2-clause
 
-Files: src/util.c src/fnmatch.h
-Copyright: 1990, Regents of the University of California.
-License: BSD-3-clause
+Files: src/util.c
+Copyright: 2009, Public Software Group e. V., Berlin, Germany
+           1990, Regents of the University of California.
+License: MIT and BSD-3-clause
 
 Files: src/xdiff/*
 Copyright: 2003, Davide Libenzi

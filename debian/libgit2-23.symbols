@@ -1,7 +1,8 @@
-libgit2.so.22 libgit2-22 #MINVER#
+libgit2.so.23 libgit2-23 #MINVER#
  git_annotated_commit_free@Base 0.22.0
  git_annotated_commit_from_fetchhead@Base 0.22.0
  git_annotated_commit_from_ref@Base 0.22.0
+ git_annotated_commit_from_revspec@Base 0.23.0
  git_annotated_commit_id@Base 0.22.0
  git_annotated_commit_lookup@Base 0.22.0
  git_attr_add_macro@Base 0.17.0
@@ -31,6 +32,7 @@ libgit2.so.22 libgit2-22 #MINVER#
  git_blob_rawcontent@Base 0.17.0
  git_blob_rawsize@Base 0.17.0
  git_branch_create@Base 0.17.0
+ git_branch_create_from_annotated@Base 0.23.0
  git_branch_delete@Base 0.17.0
  git_branch_is_head@Base 0.18.0
  git_branch_iterator_free@Base 0.20.0
@@ -66,6 +68,7 @@ libgit2.so.22 libgit2-22 #MINVER#
  git_commit_create_from_ids@Base 0.21.0
  git_commit_create_v@Base 0.17.0
  git_commit_free@Base 0.19.0
+ git_commit_header_field@Base 0.23.0
  git_commit_id@Base 0.17.0
  git_commit_lookup@Base 0.19.0
  git_commit_lookup_prefix@Base 0.19.0
@@ -88,6 +91,7 @@ libgit2.so.22 libgit2-22 #MINVER#
  git_config_backend_foreach_match@Base 0.20.0
  git_config_delete_entry@Base 0.18.0
  git_config_delete_multivar@Base 0.20.0
+ git_config_entry_free@Base 0.23.0
  git_config_find_global@Base 0.17.0
  git_config_find_system@Base 0.17.0
  git_config_find_xdg@Base 0.18.0
@@ -100,7 +104,9 @@ libgit2.so.22 libgit2-22 #MINVER#
  git_config_get_int64@Base 0.17.0
  git_config_get_mapped@Base 0.17.0
  git_config_get_multivar_foreach@Base 0.20.0
+ git_config_get_path@Base 0.23.0
  git_config_get_string@Base 0.17.0
+ git_config_get_string_buf@Base 0.23.0
  git_config_init_backend@Base 0.21.0
  git_config_iterator_free@Base 0.20.0
  git_config_iterator_glob_new@Base 0.20.0
@@ -116,6 +122,7 @@ libgit2.so.22 libgit2-22 #MINVER#
  git_config_parse_bool@Base 0.18.0
  git_config_parse_int32@Base 0.18.0
  git_config_parse_int64@Base 0.18.0
+ git_config_parse_path@Base 0.23.0
  git_config_set_bool@Base 0.17.0
  git_config_set_int32@Base 0.17.0
  git_config_set_int64@Base 0.17.0
@@ -127,6 +134,7 @@ libgit2.so.22 libgit2-22 #MINVER#
  git_cred_ssh_custom_new@Base 0.20.0
  git_cred_ssh_interactive_new@Base 0.21.0
  git_cred_ssh_key_from_agent@Base 0.21.0
+ git_cred_ssh_key_memory_new@Base 0.23.0
  git_cred_ssh_key_new@Base 0.20.0
  git_cred_username_new@Base 0.22.0
  git_cred_userpass@Base 0.18.0
@@ -169,20 +177,25 @@ libgit2.so.22 libgit2-22 #MINVER#
  git_diff_tree_to_tree@Base 0.17.0
  git_diff_tree_to_workdir@Base 0.18.0
  git_diff_tree_to_workdir_with_index@Base 0.20.0
+ git_fetch_init_options@Base 0.23.0
  git_filter_list_apply_to_blob@Base 0.20.0
  git_filter_list_apply_to_data@Base 0.20.0
  git_filter_list_apply_to_file@Base 0.20.0
+ git_filter_list_contains@Base 0.23.0
  git_filter_list_free@Base 0.20.0
  git_filter_list_length@Base 0.20.0
  git_filter_list_load@Base 0.20.0
  git_filter_list_new@Base 0.20.0
  git_filter_list_push@Base 0.20.0
+ git_filter_list_stream_blob@Base 0.23.0
+ git_filter_list_stream_data@Base 0.23.0
+ git_filter_list_stream_file@Base 0.23.0
  git_filter_lookup@Base 0.20.0
  git_filter_register@Base 0.20.0
  git_filter_source_filemode@Base 0.20.0
+ git_filter_source_flags@Base 0.23.0
  git_filter_source_id@Base 0.20.0
  git_filter_source_mode@Base 0.20.0
- git_filter_source_options@Base 0.21.0
  git_filter_source_path@Base 0.20.0
  git_filter_source_repo@Base 0.20.0
  git_filter_unregister@Base 0.20.0
@@ -198,7 +211,9 @@ libgit2.so.22 libgit2-22 #MINVER#
  git_index_add@Base 0.17.0
  git_index_add_all@Base 0.19.0
  git_index_add_bypath@Base 0.18.0
+ git_index_add_frombuffer@Base 0.23.0
  git_index_caps@Base 0.18.0
+ git_index_checksum@Base 0.23.0
  git_index_clear@Base 0.17.0
  git_index_conflict_add@Base 0.18.0
  git_index_conflict_cleanup@Base 0.18.0
@@ -207,6 +222,7 @@ libgit2.so.22 libgit2-22 #MINVER#
  git_index_conflict_iterator_new@Base 0.19.0
  git_index_conflict_next@Base 0.19.0
  git_index_conflict_remove@Base 0.18.0
+ git_index_entry_is_conflict@Base 0.23.0
  git_index_entry_stage@Base 0.17.0
  git_index_entrycount@Base 0.17.0
  git_index_find@Base 0.17.0
@@ -355,7 +371,9 @@ libgit2.so.22 libgit2-22 #MINVER#
  git_packbuilder_hash@Base 0.20.0
  git_packbuilder_insert@Base 0.18.0
  git_packbuilder_insert_commit@Base 0.19.0
+ git_packbuilder_insert_recur@Base 0.23.0
  git_packbuilder_insert_tree@Base 0.18.0
+ git_packbuilder_insert_walk@Base 0.23.0
  git_packbuilder_new@Base 0.18.0
  git_packbuilder_object_count@Base 0.18.0
  git_packbuilder_set_callbacks@Base 0.20.0
@@ -476,7 +494,6 @@ libgit2.so.22 libgit2-22 #MINVER#
  git_remote_add_fetch@Base 0.19.0
  git_remote_add_push@Base 0.19.0
  git_remote_autotag@Base 0.18.0
- git_remote_clear_refspecs@Base 0.19.0
  git_remote_connect@Base 0.17.0
  git_remote_connected@Base 0.17.0
  git_remote_create@Base 0.18.0
@@ -489,7 +506,6 @@ libgit2.so.22 libgit2-22 #MINVER#
  git_remote_dup@Base 0.21.0
  git_remote_fetch@Base 0.20.0
  git_remote_free@Base 0.17.0
- git_remote_get_callbacks@Base 0.21.0
  git_remote_get_fetch_refspecs@Base 0.19.0
  git_remote_get_push_refspecs@Base 0.19.0
  git_remote_get_refspec@Base 0.19.0
@@ -506,18 +522,11 @@ libgit2.so.22 libgit2-22 #MINVER#
  git_remote_pushurl@Base 0.18.0
  git_remote_refspec_count@Base 0.19.0
  git_remote_rename@Base 0.18.0
- git_remote_save@Base 0.17.0
  git_remote_set_autotag@Base 0.18.0
- git_remote_set_callbacks@Base 0.18.0
- git_remote_set_fetch_refspecs@Base 0.20.0
- git_remote_set_push_refspecs@Base 0.20.0
  git_remote_set_pushurl@Base 0.18.0
- git_remote_set_transport@Base 0.18.0
- git_remote_set_update_fetchhead@Base 0.18.0
  git_remote_set_url@Base 0.18.0
  git_remote_stats@Base 0.18.0
  git_remote_stop@Base 0.18.0
- git_remote_update_fetchhead@Base 0.18.0
  git_remote_update_tips@Base 0.17.0
  git_remote_upload@Base 0.22.0
  git_remote_url@Base 0.17.0
@@ -533,6 +542,7 @@ libgit2.so.22 libgit2-22 #MINVER#
  git_repository_head@Base 0.17.0
  git_repository_head_detached@Base 0.17.0
  git_repository_head_unborn@Base 0.20.0
+ git_repository_ident@Base 0.23.0
  git_repository_index@Base 0.17.0
  git_repository_init@Base 0.17.0
  git_repository_init_ext@Base 0.18.0
@@ -555,6 +565,8 @@ libgit2.so.22 libgit2-22 #MINVER#
  git_repository_set_config@Base 0.17.0
  git_repository_set_head@Base 0.18.0
  git_repository_set_head_detached@Base 0.18.0
+ git_repository_set_head_detached_from_annotated@Base 0.23.0
+ git_repository_set_ident@Base 0.23.0
  git_repository_set_index@Base 0.17.0
  git_repository_set_namespace@Base 0.19.0
  git_repository_set_odb@Base 0.17.0
@@ -566,6 +578,7 @@ libgit2.so.22 libgit2-22 #MINVER#
  git_repository_wrap_odb@Base 0.18.0
  git_reset@Base 0.18.0
  git_reset_default@Base 0.18.0
+ git_reset_from_annotated@Base 0.23.0
  git_revert@Base 0.21.0
  git_revert_commit@Base 0.22.0
  git_revert_init_options@Base 0.21.0
@@ -597,8 +610,10 @@ libgit2.so.22 libgit2-22 #MINVER#
  git_smart_subtransport_git@Base 0.18.0
  git_smart_subtransport_http@Base 0.18.0
  git_smart_subtransport_ssh@Base 0.20.0
+ git_stash_apply@Base 0.23.0
  git_stash_drop@Base 0.18.0
  git_stash_foreach@Base 0.18.0
+ git_stash_pop@Base 0.23.0
  git_stash_save@Base 0.18.0
  git_status_byindex@Base 0.19.0
  git_status_file@Base 0.17.0
@@ -630,10 +645,9 @@ libgit2.so.22 libgit2-22 #MINVER#
  git_submodule_owner@Base 0.18.0
  git_submodule_path@Base 0.18.0
  git_submodule_reload@Base 0.18.0
- git_submodule_reload_all@Base 0.18.0
  git_submodule_repo_init@Base 0.22.0
  git_submodule_resolve_url@Base 0.21.0
- git_submodule_save@Base 0.18.0
+ git_submodule_set_branch@Base 0.23.0
  git_submodule_set_fetch_recurse_submodules@Base 0.18.0
  git_submodule_set_ignore@Base 0.18.0
  git_submodule_set_update@Base 0.18.0
@@ -666,6 +680,14 @@ libgit2.so.22 libgit2-22 #MINVER#
  git_tag_target_id@Base 0.18.0
  git_tag_target_type@Base 0.18.0
  git_trace_set@Base 0.18.0
+ git_transaction_commit@Base 0.23.0
+ git_transaction_free@Base 0.23.0
+ git_transaction_lock_ref@Base 0.23.0
+ git_transaction_new@Base 0.23.0
+ git_transaction_remove@Base 0.23.0
+ git_transaction_set_reflog@Base 0.23.0
+ git_transaction_set_symbolic_target@Base 0.23.0
+ git_transaction_set_target@Base 0.23.0
  git_transport_init@Base 0.21.0
  git_transport_local@Base 0.18.0
  git_transport_new@Base 0.18.0

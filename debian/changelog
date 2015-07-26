@@ -1,3 +1,17 @@
+libgit2 (0.23.0-1) UNRELEASED; urgency=medium
+
+  * New upstream release 0.23.0.
+  * debian/control: Added build dependency on libcurl4-openssl-dev.
+  * debian/control: Updated VCS URL.
+  * debian/copyright: Added winhttp copyright.
+  * debian/docs: Added missing development documentation.
+  * debian/libgit2-23.symbols: Updated with latest symbols.
+  * debian/libgit2-dev.lintian-overrides: Override comment
+    stripping, should work once it's supported by dh_strip.
+  * debian/patches/disable_tests.patch: Updated for 0.23.0.
+
+ -- Russell Sim <russell.sim@gmail.com>  Sun, 26 Jul 2015 21:12:44 +1000
+
 libgit2 (0.22.2-2) unstable; urgency=medium
 
   * debian/control: Added dependency on pkg-config (Closes: #786494)
