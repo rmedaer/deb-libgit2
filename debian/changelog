@@ -1,3 +1,9 @@
+libgit2 (0.24.0-1) UNRELEASED; urgency=medium
+
+  * New upstream release.
+
+ -- Andreas Henriksson <andreas@fatal.se>  Sun, 03 Apr 2016 14:27:36 +0200
+
 libgit2 (0.23.1-1) unstable; urgency=medium
 
   * New upstream release 0.23.1.
