@@ -5,7 +5,7 @@ Maintainer: Russell Sim <russell.sim@gmail.com>
 Build-Depends: debhelper (>= 9.20120417), python-minimal (>= 2.4.0), pkg-config,
                cmake, libz-dev, libcurl4-openssl-dev, libssl-dev,
                libssh2-1-dev, libhttp-parser-dev, ca-certificates
-Standards-Version: 3.9.6
+Standards-Version: 3.9.7
 Homepage: http://libgit2.github.com/
 Vcs-Git: git://anonscm.debian.org/users/arrsim-guest/libgit2.git
 Vcs-Browser: http://anonscm.debian.org/cgit/users/arrsim-guest/libgit2.git/
