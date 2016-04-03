@@ -108,6 +108,7 @@ static int append_symref(const char **out, git_vector *symrefs, const char *ptr)
 		if (giterr_last()->klass != GITERR_NOMEMORY)
 			goto on_invalid;
 
+		git__free(mapping);
 		return error;
 	}
 
@@ -120,6 +121,7 @@ static int append_symref(const char **out, git_vector *symrefs, const char *ptr)
 on_invalid:
 	giterr_set(GITERR_NET, "remote sent invalid symref");
 	git_refspec__free(mapping);
+	git__free(mapping);
 	return -1;
 }
 
@@ -957,7 +959,7 @@ int git_smart__push(git_transport *transport, git_push *push, const git_remote_c
 
 	packbuilder_payload.pb = push->pb;
 
-	if (cbs && cbs->transfer_progress) {
+	if (cbs && cbs->push_transfer_progress) {
 		packbuilder_payload.cb = cbs->push_transfer_progress;
 		packbuilder_payload.cb_payload = cbs->payload;
 	}
