@@ -1,8 +1,13 @@
-libgit2 (0.24.0-1) UNRELEASED; urgency=medium
+libgit2 (0.24.0-1) experimental; urgency=medium
 
-  * New upstream release.
+  * Team upload.
+  * New upstream release. (Closes: #798338)
+  * Rename packages for new upstream so version -24
+  * Update debian/libgit2-24.symbols
+  * Bump Standards-Version to 3.9.7
+  * Update Vcs-* for new collab-maint repo
 
- -- Andreas Henriksson <andreas@fatal.se>  Sun, 03 Apr 2016 14:27:36 +0200
+ -- Andreas Henriksson <andreas@fatal.se>  Mon, 04 Apr 2016 15:30:44 +0200
 
 libgit2 (0.23.1-1) unstable; urgency=medium
 
