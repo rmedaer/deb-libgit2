@@ -9,6 +9,15 @@ libgit2 (0.24.0-1) experimental; urgency=medium
 
  -- Andreas Henriksson <andreas@fatal.se>  Mon, 04 Apr 2016 15:30:44 +0200
 
+libgit2 (0.23.1-1.1) unstable; urgency=high
+
+  * Non-maintainer upload.
+  * Don't depend on OpenSSL, either directly or indirectly. Build with and
+    depend on libcurl4-gnutls-dev instead. (Closes: #798421)
+  * Drop associated Build-Depends on ca-certificates.
+
+ -- Josh Triplett <josh@joshtriplett.org>  Fri, 18 Mar 2016 17:08:00 -0700
+
 libgit2 (0.23.1-1) unstable; urgency=medium
 
   * New upstream release 0.23.1.

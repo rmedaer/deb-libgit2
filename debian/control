@@ -3,8 +3,8 @@ Section: libs
 Priority: extra
 Maintainer: Russell Sim <russell.sim@gmail.com>
 Build-Depends: debhelper (>= 9.20120417), python-minimal (>= 2.4.0), pkg-config,
-               cmake, libz-dev, libcurl4-openssl-dev, libssl-dev,
-               libssh2-1-dev, libhttp-parser-dev, ca-certificates
+               cmake, libz-dev, libcurl4-gnutls-dev,
+               libssh2-1-dev, libhttp-parser-dev
 Standards-Version: 3.9.7
 Homepage: http://libgit2.github.com/
 Vcs-Git: https://anonscm.debian.org/cgit/collab-maint/libgit2.git/
@@ -16,7 +16,7 @@ Architecture: any
 Section: libdevel
 Multi-Arch: same
 Depends: libgit2-24 (= ${binary:Version}), libz-dev,
-         libcurl4-openssl-dev, libssl-dev, libssh2-1-dev,
+         libcurl4-gnutls-dev, libssh2-1-dev,
          libhttp-parser-dev, ${shlibs:Depends}, ${misc:Depends}
 Description: low-level Git library (development files)
  libgit2 is a portable, pure C implementation of the Git

@@ -14,6 +14,7 @@ TEST_TMPDIR := $(CURDIR)/tmp-test
 override_dh_auto_configure:
 	dh_auto_configure --builddirectory=build-debian-release -- \
 		-DCMAKE_BUILD_TYPE:STRING=RelWithDebInfo \
+		-DUSE_OPENSSL:BOOL=OFF \
 		-DTHREADSAFE:BOOL=ON \
 		-DBUILD_CLAR:BOOL=ON \
 		-DLIB_INSTALL_DIR:STRING=lib/$(DEB_HOST_MULTIARCH)
@@ -21,6 +22,7 @@ override_dh_auto_configure:
 	dh_auto_configure --builddirectory=build-debian-devel -- \
 		-DCMAKE_BUILD_TYPE:STRING=Release \
 		-DTHREADSAFE:BOOL=ON \
+		-DUSE_OPENSSL:BOOL=OFF \
 		-DBUILD_CLAR:BOOL=OFF \
 		-DBUILD_SHARED_LIBS:BOOL=OFF \
 		-DLIB_INSTALL_DIR:STRING=lib/$(DEB_HOST_MULTIARCH)
