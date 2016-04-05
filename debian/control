@@ -2,7 +2,8 @@ Source: libgit2
 Section: libs
 Priority: extra
 Maintainer: Russell Sim <russell.sim@gmail.com>
-Build-Depends: debhelper (>= 9.20120417), python-minimal (>= 2.4.0), pkg-config,
+Build-Depends: debhelper (>= 9.20160114),
+               python-minimal (>= 2.4.0), pkg-config,
                cmake, libz-dev, libcurl4-gnutls-dev,
                libssh2-1-dev, libhttp-parser-dev
 Standards-Version: 3.9.7
@@ -34,18 +35,3 @@ Description: low-level Git library
  libgit2 is a portable, pure C implementation of the Git
  distributed version control system core methods provided as a
  re-entrant link-able library with a solid API.
-
-Package: libgit2-dbg
-Section: debug
-Architecture: any
-Multi-Arch: same
-Depends: libgit2-24 (= ${binary:Version}),
-         ${misc:Depends}
-Description: libgit2 library and debugging symbols
- libgit2 is a portable, pure C implementation of the Git
- distributed version control system core methods provided as a
- re-entrant link-able library with a solid API.
- .
- This package contains detached debugging symbols.
- .
- Most people will not need this package.

@@ -46,11 +46,11 @@ override_dh_auto_test:
 	dh_auto_test --builddirectory=build-debian-devel
 
 override_dh_strip:
-	dh_strip --dbg-package=libgit2-dbg
+	dh_strip --dbgsym-migration='libgit2-dbg (<< 0.24.0-2~)'
 
 override_dh_installexamples:
 	dh_installexamples --exclude .gitignore
 
 %:
-	dh $@ --parallel --buildsystem cmake --dbg-package=libgit2-dbg --builddirectory=build-debian-release
+	dh $@ --parallel --buildsystem cmake --dbgsym-migration='libgit2-dbg (<< 0.24.0-2~)' --builddirectory=build-debian-release
 	dh $@ --parallel --buildsystem cmake --builddirectory=build-debian-devel
