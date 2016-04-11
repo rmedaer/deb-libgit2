@@ -1,1 +1,2 @@
 disable_tests.patch
+git_tests-fix-core-stream-test-when-built-with-openssl-o.patch
