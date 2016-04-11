@@ -1,6 +1,11 @@
 libgit2 (0.24.0-2) UNRELEASED; urgency=medium
 
   * Incorporate 0.23.1-1.1 NMU diff
+  * Drop libgit2-dbg and migrate to dbgsym
+  * Add git_tests-fix-core-stream-test-when-built-with-openssl-o.patch
+    - cherry-picked from upstream git master.
+  * Disable fakeroot emulation when running tests
+    - tests only works under regular user or real root.
 
  -- Andreas Henriksson <andreas@fatal.se>  Tue, 05 Apr 2016 08:18:01 +0200
 
