@@ -1,8 +1,13 @@
-libgit2 (0.24.1-1) UNRELEASED; urgency=medium
+libgit2 (0.24.1-1) experimental; urgency=medium
 
+  * Team upload.
   * New upstream release.
+  * Drop git_tests-fix-core-stream-test-when-built-with-openssl-o.patch
+    - merged upstream.
+  * Revert "Disable fakeroot emulation when running tests"
+    - no longer needed thanks to upstream fix.
 
- -- Andreas Henriksson <andreas@fatal.se>  Tue, 12 Apr 2016 16:31:12 +0200
+ -- Andreas Henriksson <andreas@fatal.se>  Tue, 12 Apr 2016 16:34:48 +0200
 
 libgit2 (0.24.0-2) experimental; urgency=medium
 
