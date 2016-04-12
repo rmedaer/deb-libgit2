@@ -40,15 +40,10 @@ override_dh_auto_install:
 	dh_auto_install --builddirectory=build-debian-devel
 
 override_dh_auto_test:
-	mkdir -p build-debian-release/tmp build-debian-devel/tmp
-ifneq (,$(FAKEROOTKEY))
-		echo "Detected running under fakeroot, resetting LD_LIBRARY_PATH as tests are not compatible with fakeroot."
-		LD_PRELOAD="" dh_auto_test --builddirectory=build-debian-release
-		LD_PRELOAD="" dh_auto_test --builddirectory=build-debian-devel
-else
-		dh_auto_test --builddirectory=build-debian-release
-		dh_auto_test --builddirectory=build-debian-devel
-endif
+	mkdir -p build-debian-release/tmp
+	dh_auto_test --builddirectory=build-debian-release
+	mkdir -p build-debian-devel/tmp
+	dh_auto_test --builddirectory=build-debian-devel
 
 override_dh_strip:
 	dh_strip --dbgsym-migration='libgit2-dbg (<< 0.24.0-2~)'
