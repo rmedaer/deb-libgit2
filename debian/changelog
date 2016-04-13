@@ -1,3 +1,10 @@
+libgit2 (0.24.1-2) unstable; urgency=medium
+
+  * Team upload.
+  * Upload to unstable.
+
+ -- Andreas Henriksson <andreas@fatal.se>  Wed, 13 Apr 2016 11:31:25 +0200
+
 libgit2 (0.24.1-1) experimental; urgency=medium
 
   * Team upload.
