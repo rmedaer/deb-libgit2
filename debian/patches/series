@@ -1,1 +1,2 @@
 disable_tests.patch
+commit-always-initialize-commit-message.patch
