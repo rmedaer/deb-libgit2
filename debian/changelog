@@ -1,11 +1,11 @@
-libgit2 (0.24.2-1) UNRELEASED; urgency=medium
+libgit2 (0.24.2-1) experimental; urgency=medium
 
   * New upstream release.
   * Bump Standards-Version to 3.9.8
   * Add commit-always-initialize-commit-message.patch fixes CVE-2016-8568,
     CVE-2016-8569
-  * Set debian hardening compile flags.
-  * Force timezone to GMT.
+  * debian/rules: Set debian hardening compile flags.
+  * debian/rules: When testing package force timezone to GMT.
 
  -- Russell Sim <russell.sim@gmail.com>  Sun, 23 Oct 2016 14:30:45 +1100
 
