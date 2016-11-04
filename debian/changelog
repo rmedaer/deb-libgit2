@@ -1,3 +1,9 @@
+libgit2 (0.24.2-2) unstable; urgency=medium
+
+  * Upload to unstable.
+
+ -- Russell Sim <russell.sim@gmail.com>  Fri, 04 Nov 2016 18:36:41 +1100
+
 libgit2 (0.24.2-1) experimental; urgency=medium
 
   * New upstream release.
