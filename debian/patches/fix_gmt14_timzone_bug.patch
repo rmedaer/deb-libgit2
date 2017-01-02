@@ -1,0 +1,29 @@
+From 23c9ff8632d8ae90d211601d3254ab7f4d35e853 Mon Sep 17 00:00:00 2001
+From: Andreas Henriksson <andreas@fatal.se>
+Date: Sat, 17 Dec 2016 17:33:13 +0100
+Subject: [PATCH] Fix off-by-one problems in git_signature__parse
+
+Etc/GMT-14 aka UTC+14:00 is a thing....
+https://en.wikipedia.org/wiki/UTC%2B14:00
+
+Also allow offsets on the last minute (59).
+
+Addresses: https://bugs.debian.org/841532
+Fixes: #3970
+---
+ src/signature.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/src/signature.c b/src/signature.c
+index dcc3797..22cba7e 100644
+--- a/src/signature.c
++++ b/src/signature.c
+@@ -251,7 +251,7 @@ int git_signature__parse(git_signature *sig, const char **buffer_out,
+ 			 * only store timezone if it's not overflowing;
+ 			 * see http://www.worldtimezone.com/faq.html
+ 			 */
+-			if (hours < 14 && mins < 59) {
++			if (hours <= 14 && mins <= 59) {
+ 				sig->when.offset = (hours * 60) + mins;
+ 				if (tz_start[0] == '-')
+ 					sig->when.offset = -sig->when.offset;

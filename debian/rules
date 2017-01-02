@@ -44,11 +44,9 @@ override_dh_auto_install:
 
 override_dh_auto_test:
 	mkdir -p build-debian-release/tmp
-	# Force the timezone to GMT to work around bug with GMT-14 timezone
-	# https://github.com/libgit2/libgit2/issues/3970
-	TZ=/usr/share/zoneinfo/Etc/GMT dh_auto_test --builddirectory=build-debian-release
+	dh_auto_test --builddirectory=build-debian-release
 	mkdir -p build-debian-devel/tmp
-	TZ=/usr/share/zoneinfo/Etc/GMT dh_auto_test --builddirectory=build-debian-devel
+	dh_auto_test --builddirectory=build-debian-devel
 
 override_dh_strip:
 	dh_strip --dbgsym-migration='libgit2-dbg (<< 0.24.0-2~)'
