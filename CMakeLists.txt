@@ -20,6 +20,7 @@ SET(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_CURRENT_SOURCE_DIR}/cmake/Mo
 
 INCLUDE(CheckLibraryExists)
 INCLUDE(CheckFunctionExists)
+INCLUDE(CheckSymbolExists)
 INCLUDE(CheckStructHasMember)
 INCLUDE(AddCFlagIfSupported)
 INCLUDE(FindPkgConfig)
@@ -109,7 +110,7 @@ ELSE ()
 ENDIF()
 
 IF (HAVE_STRUCT_STAT_NSEC OR WIN32)
-	OPTION( USE_NSEC		"Care about sub-second file mtimes and ctimes"	OFF )
+	OPTION( USE_NSEC		"Care about sub-second file mtimes and ctimes"	ON  )
 ENDIF()
 
 # This variable will contain the libraries we need to put into
@@ -507,6 +508,11 @@ ELSE ()
 	ENDIF ()
 ENDIF()
 
+CHECK_SYMBOL_EXISTS(regcomp_l "regex.h;xlocale.h" HAVE_REGCOMP_L)
+IF (HAVE_REGCOMP_L)
+	ADD_DEFINITIONS(-DHAVE_REGCOMP_L)
+ENDIF ()
+
 CHECK_FUNCTION_EXISTS(futimens HAVE_FUTIMENS)
 IF (HAVE_FUTIMENS)
 	ADD_DEFINITIONS(-DHAVE_FUTIMENS)
@@ -589,8 +595,10 @@ IF (CMAKE_SIZEOF_VOID_P EQUAL 8)
 	ADD_DEFINITIONS(-DGIT_ARCH_64)
 ELSEIF (CMAKE_SIZEOF_VOID_P EQUAL 4)
 	ADD_DEFINITIONS(-DGIT_ARCH_32)
+ELSEIF (CMAKE_SIZEOF_VOID_P)
+	MESSAGE(FATAL_ERROR "Unsupported architecture (pointer size is ${CMAKE_SIZEOF_VOID_P} bytes)")
 ELSE()
-	MESSAGE(FATAL_ERROR "Unsupported architecture")
+	MESSAGE(FATAL_ERROR "Unsupported architecture (CMAKE_SIZEOF_VOID_P is unset)")
 ENDIF()
 
 # Compile and link libgit2
@@ -697,6 +705,8 @@ IF (BUILD_CLAR)
 	# Add a test target which runs the cred callback tests, to be
 	# called after setting the url and user
 	ADD_TEST(libgit2_clar-cred_callback libgit2_clar -v -sonline::clone::cred_callback)
+	ADD_TEST(libgit2_clar-proxy_credentials_in_url libgit2_clar -v -sonline::clone::proxy_credentials_in_url)
+	ADD_TEST(libgit2_clar-proxy_credentials_request libgit2_clar -v	-sonline::clone::proxy_credentials_request)
 ENDIF ()
 
 IF (TAGS)
