@@ -1,2 +1,2 @@
 disable_tests.patch
-fix_gmt14_timzone_bug.patch
+disable_https_tests.patch

@@ -1,3 +1,13 @@
+libgit2 (0.25.1-0.1) unstable; urgency=medium
+
+  * New upstream release. 
+  * Non-maintainer upload.
+  * Removed debian/patches/fix_gmt14_timzone_bug.patch
+    (see https://github.com/libgit2/libgit2/commit/23c9ff86)
+  * Added debian/patches/disable_https_tests.patch to fix HTTPS tests.
+
+ -- Raphael Medaer <raphael@medaer.me>  Tue, 07 Mar 2017 13:40:00 +0100
+
 libgit2 (0.24.5-1) unstable; urgency=medium
 
   * New upstream release.

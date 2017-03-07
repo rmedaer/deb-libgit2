@@ -1,0 +1,12 @@
+--- a/tests/core/features.c
++++ b/tests/core/features.c
+@@ -17,7 +17,9 @@
+ 	cl_assert((caps & GIT_FEATURE_THREADS) == 0);
+ #endif
+ 
++#if defined(GIT_OPENSSL) || defined(GIT_WINHTTP) || defined(GIT_SECURE_TRANSPORT)
+ 	cl_assert((caps & GIT_FEATURE_HTTPS) != 0);
++#endif
+ 
+ #if defined(GIT_SSH)
+ 	cl_assert((caps & GIT_FEATURE_SSH) != 0);
