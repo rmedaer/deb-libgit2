@@ -1,3 +1,9 @@
+libgit2 (0.26.0-rc.b31b2360) UNRELEASED; urgency=medium
+
+  * Testing upstream master branch.
+
+ -- Raphael Medaer <raphael@medaer.me>  Wed, 08 Mar 2017 09:45:45 +0100
+
 libgit2 (0.25.1-0.1) unstable; urgency=medium
 
   * New upstream release. 
