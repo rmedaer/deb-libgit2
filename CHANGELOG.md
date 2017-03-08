@@ -3,11 +3,19 @@ v0.25 + 1
 
 ### Changes or improvements
 
+* `GIT_MERGE_OPTIONS_INIT` now includes a setting to perform rename detection.
+  This aligns this structure with the default by `git_merge` and
+  `git_merge_trees` when `NULL` was provided for the options.
+
 ### API additions
 
 ### API removals
 
 ### Breaking API changes
+
+* `clone_checkout_strategy` has been removed from
+  `git_submodule_update_option`. The checkout strategy used to clone will
+  be the same strategy specified in `checkout_opts`.
 
 v0.25
 -------
@@ -150,7 +158,12 @@ v0.25
   If this is `NULL`, then it will not be called and the `exists` function
   will be used instead.
 
-* `git_remote_connect()` now accepts proxy options.
+* `git_remote_connect()` now accepts `git_proxy_options` argument, and
+  `git_fetch_options` and `git_push_options` each have a `proxy_opts` field.
+
+* `git_merge_options` now provides a `default_driver` that can be used
+  to provide the name of a merge driver to be used to handle files changed
+  during a merge.
 
 v0.24
 -------
@@ -226,10 +239,6 @@ v0.24
 * No APIs were removed in this version.
 
 ### Breaking API changes
-
-* `git_merge_options` now provides a `default_driver` that can be used
-  to provide the name of a merge driver to be used to handle files changed
-  during a merge.
 
 * The `git_merge_tree_flag_t` is now `git_merge_flag_t`.  Subsequently,
   its members are no longer prefixed with `GIT_MERGE_TREE_FLAG` but are
